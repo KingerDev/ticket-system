@@ -26,29 +26,7 @@ const submit = () => {
         include_ticket: form.value.include_ticket ? '1' : '0',
     });
 
-    // Use a form POST to trigger file download
-    const formEl = document.createElement('form');
-    formEl.method = 'POST';
-    formEl.action = route('admin.export.download');
-
-    // CSRF token
-    const csrf = document.createElement('input');
-    csrf.type = 'hidden';
-    csrf.name = '_token';
-    csrf.value = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-    formEl.appendChild(csrf);
-
-    for (const [key, value] of params.entries()) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = value;
-        formEl.appendChild(input);
-    }
-
-    document.body.appendChild(formEl);
-    formEl.submit();
-    document.body.removeChild(formEl);
+    window.location.href = route('admin.export.download') + '?' + params.toString();
 
     setTimeout(() => { loading.value = false; }, 2000);
 };

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(php artisan:*)",
       "Bash(composer require:*)",
-      "Bash(php -v)"
+      "Bash(php -v)",
+      "Bash(npm run:*)"
     ]
   }
 }

@@ -321,6 +321,11 @@ const getGuestForSeat = (table, seatNum) => {
                 <span v-if="selectedGuest.allergen_note"> · {{ selectedGuest.allergen_note }}</span>
             </div>
 
+            <div v-if="selectedGuest.note" class="mb-3 px-3 py-2 bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 rounded-lg text-sm">
+                <span class="block text-xs uppercase opacity-70 mb-0.5">Poznámka</span>
+                {{ selectedGuest.note }}
+            </div>
+
             <div class="pt-3 border-t border-gray-100 dark:border-gray-700 font-medium text-sm text-center rounded">
                 <span v-if="selectedGuest.checked_in" class="block w-full text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20 py-1 rounded">
                     ✓ Check-in: {{ new Date(selectedGuest.checked_in_at).toLocaleTimeString() }}

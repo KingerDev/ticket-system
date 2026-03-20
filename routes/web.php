@@ -30,7 +30,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
 
     // Export
     Route::get('/export', [\App\Http\Controllers\Admin\ExportController::class, 'index'])->name('admin.export');
-    Route::post('/export', [\App\Http\Controllers\Admin\ExportController::class, 'export'])->name('admin.export.download');
+    Route::get('/export/download', [\App\Http\Controllers\Admin\ExportController::class, 'export'])->name('admin.export.download');
 
     // Check-in
     Route::get('/checkin', [\App\Http\Controllers\Admin\CheckInController::class, 'index'])->name('admin.checkin');
