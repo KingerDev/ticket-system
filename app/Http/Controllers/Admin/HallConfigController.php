@@ -15,56 +15,73 @@ class HallConfigController extends Controller
     public function edit()
     {
         $config = HallConfig::first();
-        
-        // Ensure accurate locked status
-        $isLocked = Guest::where('ticket_issued', true)->exists();
-        if ($config && $config->locked !== $isLocked) {
-            $config->update(['locked' => $isLocked]);
-        }
+        $tables = Table::withCount('guests')->get(['id', 'name', 'row_label', 'position_in_row', 'capacity']);
 
         return Inertia::render('Admin/HallConfig', [
             'config' => $config,
+            'tables' => $tables,
         ]);
     }
 
     public function update(Request $request)
     {
-        $config = HallConfig::first();
-        if ($config && $config->locked) {
-            return back()->with('error', 'Konfigurácia sály je zamknutá, pretože už boli vydané lístky.');
-        }
-
         $validated = $request->validate([
-            'num_rows' => 'required|integer|min:1|max:26',
-            'tables_per_row' => 'required|array',
-            'tables_per_row.*' => 'integer|min:1',
-            'seats_per_table' => 'required|integer|min:1',
+            'num_rows'          => 'required|integer|min:1|max:26',
+            'tables_per_row'    => 'required|array',
+            'tables_per_row.*'  => 'integer|min:0',
+            'seats_per_table'   => 'required|integer|min:1',
         ]);
 
-        DB::transaction(function () use ($validated, $config) {
+        // Build the set of table names the new config produces
+        $alphabet = range('A', 'Z');
+        $newTableNames = [];
+        for ($r = 0; $r < $validated['num_rows']; $r++) {
+            $label = $alphabet[$r];
+            $count = $validated['tables_per_row'][$r] ?? 0;
+            for ($t = 1; $t <= $count; $t++) {
+                $newTableNames[] = $label . $t;
+            }
+        }
+
+        $currentTables = Table::withCount('guests')->get()->keyBy('name');
+        $currentNames  = $currentTables->keys()->toArray();
+
+        $namesToRemove = array_values(array_diff($currentNames, $newTableNames));
+        $namesToAdd    = array_values(array_diff($newTableNames, $currentNames));
+
+        DB::transaction(function () use ($validated, $currentTables, $namesToRemove, $namesToAdd, $alphabet) {
+            // Save config
+            $config = HallConfig::first();
             if (!$config) {
-                $config = HallConfig::create($validated);
+                HallConfig::create($validated);
             } else {
                 $config->update($validated);
             }
 
-            // Recreate tables
-            Table::query()->delete();
+            // Remove tables that are no longer in config
+            foreach ($namesToRemove as $name) {
+                $table = $currentTables[$name];
+                // Clear seat_number; table_id is nulled automatically by DB (nullOnDelete)
+                Guest::where('table_id', $table->id)->update(['seat_number' => null]);
+                $table->delete();
+            }
 
-            $alphabet = range('A', 'Z');
-            
-            for ($r = 0; $r < $validated['num_rows']; $r++) {
-                $rowLabel = $alphabet[$r];
-                $tableCount = $validated['tables_per_row'][$r] ?? 0;
+            // Update capacity on tables that remain
+            $remainingIds = $currentTables->except($namesToRemove)->pluck('id');
+            if ($remainingIds->isNotEmpty()) {
+                Table::whereIn('id', $remainingIds)->update(['capacity' => $validated['seats_per_table']]);
+            }
 
-                for ($t = 1; $t <= $tableCount; $t++) {
-                    Table::create([
-                        'name' => $rowLabel . $t,
-                        'row_label' => $rowLabel,
-                        'position_in_row' => $t,
-                        'capacity' => $validated['seats_per_table'],
-                    ]);
-                }
+            // Add new tables
+            foreach ($namesToAdd as $name) {
+                $label = substr($name, 0, 1);
+                $pos   = (int) substr($name, 1);
+                Table::create([
+                    'name'           => $name,
+                    'row_label'      => $label,
+                    'position_in_row'=> $pos,
+                    'capacity'       => $validated['seats_per_table'],
+                ]);
             }
         });
 

@@ -51,14 +51,6 @@ defineProps({
                             Lístky Vám budú doručené až po uhradení platby a výbere stola.
                         </p>
                     </li>
-                    <li class="flex items-start">
-                        <div class="flex-shrink-0 mt-1">
-                            <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
-                        </div>
-                        <p class="ml-3 text-sm text-gray-600 dark:text-gray-400">
-                            Detailné inštrukcie k platbe sme Vám odoslali na email, ktorý ste uviedli pri dôležitom hosťovi.
-                        </p>
-                    </li>
                 </ul>
             </div>
 

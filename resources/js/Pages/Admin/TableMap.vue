@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 
 const props = defineProps({
     config: Object,
@@ -22,9 +22,32 @@ const props = defineProps({
 
 const emit = defineEmits(['seat-selected']);
 
+// DOM refs for fit-to-screen calculation
+const mapContainer = ref(null);
+const transformLayer = ref(null);
+
+const fitToScreen = () => {
+    if (!mapContainer.value || !transformLayer.value) return;
+    const containerW = mapContainer.value.clientWidth;
+    const containerH = mapContainer.value.clientHeight;
+    const contentW = transformLayer.value.scrollWidth;
+    const contentH = transformLayer.value.scrollHeight;
+    const fitScale = Math.min(
+        (containerW * 0.92) / contentW,
+        (containerH * 0.92) / contentH,
+        1
+    );
+    scale.value = Math.max(fitScale, 0.3);
+    // origin-center: translate so the element's center aligns with the container's center
+    translateX.value = containerW / 2 - contentW / 2;
+    translateY.value = containerH / 2 - contentH / 2;
+};
+
 // Refresh data every 10 seconds (only if not in assign mode, so assigning doesn't annoyingly reload)
 let refreshInterval;
-onMounted(() => {
+onMounted(async () => {
+    await nextTick();
+    fitToScreen();
     if (!props.assignMode) {
         refreshInterval = setInterval(() => {
             router.reload({ only: ['tables'] });
@@ -68,6 +91,48 @@ const handleMouseMove = (e) => {
 
 const handleMouseUp = () => {
     isDragging = false;
+};
+
+// Zoom buttons
+const zoomIn = () => { scale.value = Math.min(scale.value + 0.2, 3); };
+const zoomOut = () => { scale.value = Math.max(scale.value - 0.2, 0.3); };
+const resetView = () => fitToScreen();
+
+// Touch support
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartDist = 0;
+let touchStartScale = 1;
+let isTouching = false;
+
+const getTouchDist = (touches) =>
+    Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+
+const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+        isTouching = true;
+        touchStartX = e.touches[0].clientX - translateX.value;
+        touchStartY = e.touches[0].clientY - translateY.value;
+    } else if (e.touches.length === 2) {
+        isTouching = false;
+        touchStartDist = getTouchDist(e.touches);
+        touchStartScale = scale.value;
+    }
+};
+
+const handleTouchMove = (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isTouching) {
+        translateX.value = e.touches[0].clientX - touchStartX;
+        translateY.value = e.touches[0].clientY - touchStartY;
+    } else if (e.touches.length === 2) {
+        const dist = getTouchDist(e.touches);
+        scale.value = Math.min(Math.max(touchStartScale * (dist / touchStartDist), 0.3), 3);
+    }
+};
+
+const handleTouchEnd = () => {
+    isTouching = false;
 };
 
 // Seat popover logic
@@ -151,8 +216,9 @@ const getGuestForSeat = (table, seatNum) => {
         </template>
 
         <!-- Fullscreen Map Container -->
-        <div 
-            class="map-container relative overflow-hidden bg-gray-50 dark:bg-gray-900" 
+        <div
+            ref="mapContainer"
+            class="map-container relative overflow-hidden bg-gray-50 dark:bg-gray-900"
             :style="embedded ? 'height: 100%; min-height: 600px; cursor: grab;' : 'height: calc(100vh - 130px); min-height: 80vh; cursor: grab;'"
             :class="{'!cursor-grabbing': isDragging}"
             @wheel.passive="handleWheel"
@@ -161,9 +227,13 @@ const getGuestForSeat = (table, seatNum) => {
             @mouseup="handleMouseUp"
             @mouseleave="handleMouseUp"
             @click="closePopover"
+            @touchstart.passive="handleTouchStart"
+            @touchmove.prevent="handleTouchMove"
+            @touchend="handleTouchEnd"
         >
             <!-- Transform Layer -->
-            <div 
+            <div
+                ref="transformLayer"
                 class="absolute origin-center transition-transform duration-75 ease-out"
                 :style="{ transform: `translate(${translateX}px, ${translateY}px) scale(${scale})` }"
             >
@@ -219,6 +289,13 @@ const getGuestForSeat = (table, seatNum) => {
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Zoom Controls -->
+        <div class="absolute bottom-4 left-4 z-40 flex flex-col gap-1">
+            <button @click.stop="zoomIn" class="w-10 h-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow text-gray-700 dark:text-gray-200 text-xl font-bold hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-center">+</button>
+            <button @click.stop="zoomOut" class="w-10 h-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow text-gray-700 dark:text-gray-200 text-xl font-bold hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-center">−</button>
+            <button @click.stop="resetView" class="w-10 h-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow text-gray-700 dark:text-gray-200 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-center" title="Resetovať pohľad">⊙</button>
         </div>
 
         <!-- Popover -->

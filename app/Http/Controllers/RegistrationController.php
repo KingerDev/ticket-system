@@ -22,7 +22,7 @@ class RegistrationController extends Controller
         $validated = $request->validate([
             'guests'                        => 'required|array|min:1',
             'guests.*.name'                 => 'required|string|max:255',
-            'guests.*.email'                => 'required|email|max:255',
+            'guests.*.email'                => 'nullable|email|max:255',
             'guests.*.allergen_ids'         => 'nullable|array',
             'guests.*.allergen_ids.*'       => 'integer|between:1,14',
             'guests.*.is_vegan'             => 'nullable|boolean',
