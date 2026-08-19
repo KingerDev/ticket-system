@@ -84,13 +84,13 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Registrácia na Beániu" />
+    <Head title="Registrácia na Beánie" />
 
     <div class="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div class="max-w-3xl w-full space-y-8 bg-white dark:bg-gray-800 px-4 py-8 sm:p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
             <div>
                 <h2 class="text-center text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-                    Registrácia na Beániu
+                    Registrácia na Beánie
                 </h2>
                 <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
                     Vyplňte formulár pre každého hosťa. Potvrdenie bude zaslané na e-mail prvého hosťa.

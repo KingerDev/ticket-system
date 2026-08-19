@@ -2,11 +2,11 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Potvrdenie rezervácie na Beániu</title>
+    <title>Potvrdenie rezervácie na Beánie</title>
 </head>
 <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #2b6cb0;">Potvrdenie rezervácie na Beániu</h2>
+        <h2 style="color: #2b6cb0;">Potvrdenie rezervácie na Beánie</h2>
         <p>Dobrý deň, {{ $registration->registrant_name }},</p>
         <p>Vaša rezervácia s číslom <strong>{{ $registration->reservation_number }}</strong> bola úspešne vytvorená.</p>
         
