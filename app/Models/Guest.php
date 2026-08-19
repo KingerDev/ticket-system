@@ -23,6 +23,14 @@ class Guest extends Model
         'paid_at'       => 'datetime',
     ];
 
+    /**
+     * Meno aj priezvisko – aspoň dve slová.
+     *
+     * Používa ju verejný formulár aj administrácia, aby platili rovnaké
+     * pravidlá na oboch stranách.
+     */
+    public const FULL_NAME_REGEX = "regex:/^\\p{L}[\\p{L}\\p{M}'\\-.]*(\\s+\\p{L}[\\p{L}\\p{M}'\\-.]*)+$/u";
+
     // EU allergens per Slovak norms
     public const ALLERGENS = [
         1  => 'Obilniny s lepkom',
@@ -52,6 +60,16 @@ class Guest extends Model
         if ($this->is_vegetarian)  $parts[] = 'Vegetarián';
         if ($this->allergen_note)  $parts[] = $this->allergen_note;
         return implode(' | ', $parts);
+    }
+
+    /** Zoznam alergénov pre frontend: [{ id, name }, ...]. */
+    public static function allergenOptions(): array
+    {
+        return array_map(
+            fn ($id, $name) => ['id' => $id, 'name' => $name],
+            array_keys(self::ALLERGENS),
+            self::ALLERGENS
+        );
     }
 
     public function registration()

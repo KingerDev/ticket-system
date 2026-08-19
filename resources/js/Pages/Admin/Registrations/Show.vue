@@ -1,14 +1,19 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import TableMap from '../TableMap.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import Modal from '@/Components/Modal.vue';
+import InputError from '@/Components/InputError.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({
     registration: Object,
     tables: Array,
+    // Zoznam alergénov chodí z modelu Guest, nech nie je duplikovaný vo frontende.
+    allergens: { type: Array, default: () => [] },
 });
 
 // Currently selected guest id for assignment
@@ -67,6 +72,66 @@ const saveSeatAssignment = () => {
                 cancelAssignment();
             }
         }
+    });
+};
+
+// --- Úprava údajov hosťa ---------------------------------------------------
+
+const showEditModal = ref(false);
+const editingGuest = ref(null);
+
+const editForm = useForm({
+    name: '',
+    email: '',
+    allergen_ids: [],
+    is_vegan: false,
+    is_vegetarian: false,
+    is_teacher: false,
+    allergen_note: '',
+    note: '',
+});
+
+const openEditModal = (guest) => {
+    editingGuest.value = guest;
+    editForm.clearErrors();
+    editForm.name          = guest.name ?? '';
+    editForm.email         = guest.email ?? '';
+    editForm.allergen_ids  = [...(guest.allergen_ids ?? [])];
+    editForm.is_vegan      = !!guest.is_vegan;
+    editForm.is_vegetarian = !!guest.is_vegetarian;
+    editForm.is_teacher    = !!guest.is_teacher;
+    editForm.allergen_note = guest.allergen_note ?? '';
+    editForm.note          = guest.note ?? '';
+    showEditModal.value = true;
+};
+
+const saveGuest = () => {
+    editForm.patch(route('admin.guests.update', editingGuest.value.id), {
+        preserveScroll: true,
+        onSuccess: () => { showEditModal.value = false; },
+    });
+};
+
+// --- Úprava kontaktu rezervácie --------------------------------------------
+
+const showContactModal = ref(false);
+
+const contactForm = useForm({
+    registrant_name: '',
+    registrant_email: '',
+});
+
+const openContactModal = () => {
+    contactForm.clearErrors();
+    contactForm.registrant_name  = props.registration.registrant_name ?? '';
+    contactForm.registrant_email = props.registration.registrant_email ?? '';
+    showContactModal.value = true;
+};
+
+const saveContact = () => {
+    contactForm.patch(route('admin.registrations.update_contact', props.registration.id), {
+        preserveScroll: true,
+        onSuccess: () => { showContactModal.value = false; },
     });
 };
 
@@ -135,7 +200,13 @@ const closeTicketModal = () => {
                     <span class="text-gray-400">·</span>
                     <span>Skupinová registrácia — {{ registration.guests.length }} {{ registration.guests.length === 1 ? 'hosť' : registration.guests.length < 5 ? 'hostia' : 'hostí' }}</span>
                     <span class="text-gray-400">·</span>
-                    <span>Potvrdenie: {{ registration.registrant_email }}</span>
+                    <span>Kontakt: {{ registration.registrant_name }} &lt;{{ registration.registrant_email }}&gt;</span>
+                    <button
+                        @click="openContactModal"
+                        class="ml-auto px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
+                    >
+                        Upraviť kontakt
+                    </button>
                 </div>
 
                 <!-- Guests List -->
@@ -158,6 +229,7 @@ const closeTicketModal = () => {
                                         </span>
                                     </h4>
                                     <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 space-y-0.5">
+                                        <div v-if="guest.email">{{ guest.email }}</div>
                                         <div v-if="guest.allergen_ids?.length || guest.is_vegan || guest.is_vegetarian || guest.allergen_note" class="text-red-500 dark:text-red-400 font-medium">
                                             Alergény:
                                             <span v-if="guest.allergen_ids?.length">{{ guest.allergen_ids.join(', ') }}</span>
@@ -178,6 +250,13 @@ const closeTicketModal = () => {
                                             : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200'"
                                     >
                                         {{ guest.paid ? '✓ Zaplatené' : '✗ Nezaplatené' }}
+                                    </button>
+
+                                    <button
+                                        @click="openEditModal(guest)"
+                                        class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
+                                    >
+                                        Upraviť údaje
                                     </button>
 
                                     <button
@@ -239,6 +318,146 @@ const closeTicketModal = () => {
 
             </div>
         </div>
+
+        <!-- Úprava údajov hosťa -->
+        <Modal :show="showEditModal" @close="showEditModal = false" maxWidth="2xl">
+            <form v-if="editingGuest" @submit.prevent="saveGuest" class="p-6">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Upraviť údaje hosťa</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Rezervácia {{ registration.reservation_number }}
+                </p>
+
+                <div class="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <InputLabel for="edit_name">
+                                Meno a priezvisko <span class="text-red-500">*</span>
+                            </InputLabel>
+                            <TextInput id="edit_name" type="text" class="mt-1 block w-full" v-model="editForm.name" required />
+                            <InputError class="mt-1" :message="editForm.errors.name" />
+                        </div>
+                        <div>
+                            <InputLabel for="edit_email">E-mail</InputLabel>
+                            <TextInput id="edit_email" type="email" class="mt-1 block w-full" v-model="editForm.email" />
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Nepovinné. Potvrdenia chodia na kontaktný e-mail rezervácie.</p>
+                            <InputError class="mt-1" :message="editForm.errors.email" />
+                        </div>
+                    </div>
+
+                    <fieldset>
+                        <legend class="block font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Alergie na jedlo</legend>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                            <label v-for="allergen in allergens" :key="allergen.id" class="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    :value="allergen.id"
+                                    v-model="editForm.allergen_ids"
+                                    class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4"
+                                />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold text-gray-500 dark:text-gray-400 mr-0.5">{{ allergen.id }}.</span>{{ allergen.name }}
+                                </span>
+                            </label>
+                        </div>
+                        <InputError class="mt-1" :message="editForm.errors.allergen_ids" />
+                    </fieldset>
+
+                    <fieldset>
+                        <legend class="block font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Strava a rola</legend>
+                        <div class="flex flex-wrap gap-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" v-model="editForm.is_vegan" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                                <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">Vegán</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" v-model="editForm.is_vegetarian" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                                <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">Vegetarián</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" v-model="editForm.is_teacher" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                                <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">Učiteľ / učiteľka</span>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <InputLabel for="edit_allergen_note" value="Doplnenie k alergiám" />
+                            <textarea
+                                id="edit_allergen_note"
+                                v-model="editForm.allergen_note"
+                                rows="2"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                            ></textarea>
+                            <InputError class="mt-1" :message="editForm.errors.allergen_note" />
+                        </div>
+                        <div>
+                            <InputLabel for="edit_note" value="Odkaz pre organizátorov" />
+                            <textarea
+                                id="edit_note"
+                                v-model="editForm.note"
+                                rows="2"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                            ></textarea>
+                            <InputError class="mt-1" :message="editForm.errors.note" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                        type="button"
+                        @click="showEditModal = false"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                        Zrušiť
+                    </button>
+                    <PrimaryButton :disabled="editForm.processing" :class="{ 'opacity-25': editForm.processing }">
+                        {{ editForm.processing ? 'Ukladám…' : 'Uložiť zmeny' }}
+                    </PrimaryButton>
+                </div>
+            </form>
+        </Modal>
+
+        <!-- Úprava kontaktu rezervácie -->
+        <Modal :show="showContactModal" @close="showContactModal = false" maxWidth="md">
+            <form @submit.prevent="saveContact" class="p-6">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Upraviť kontakt rezervácie</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Adresa, na ktorú sa posielajú potvrdenia k rezervácii {{ registration.reservation_number }}.
+                </p>
+
+                <div class="space-y-4">
+                    <div>
+                        <InputLabel for="contact_name">
+                            Kontaktná osoba <span class="text-red-500">*</span>
+                        </InputLabel>
+                        <TextInput id="contact_name" type="text" class="mt-1 block w-full" v-model="contactForm.registrant_name" required />
+                        <InputError class="mt-1" :message="contactForm.errors.registrant_name" />
+                    </div>
+                    <div>
+                        <InputLabel for="contact_email">
+                            Kontaktný e-mail <span class="text-red-500">*</span>
+                        </InputLabel>
+                        <TextInput id="contact_email" type="email" class="mt-1 block w-full" v-model="contactForm.registrant_email" required />
+                        <InputError class="mt-1" :message="contactForm.errors.registrant_email" />
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button
+                        type="button"
+                        @click="showContactModal = false"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                        Zrušiť
+                    </button>
+                    <PrimaryButton :disabled="contactForm.processing" :class="{ 'opacity-25': contactForm.processing }">
+                        {{ contactForm.processing ? 'Ukladám…' : 'Uložiť' }}
+                    </PrimaryButton>
+                </div>
+            </form>
+        </Modal>
 
         <!-- Issue Ticket Confirmation Modal -->
         <Modal :show="showIssueModal" @close="showIssueModal = false" maxWidth="sm">

@@ -20,6 +20,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     // Registrations
     Route::get('/registrations', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'index'])->name('admin.registrations.index');
     Route::get('/registrations/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'show'])->name('admin.registrations.show');
+    Route::patch('/registrations/{id}/contact', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateContact'])->name('admin.registrations.update_contact');
+    Route::patch('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateGuest'])->name('admin.guests.update');
     Route::post('/registrations/{id}/assign-seat', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'assignSeat'])->name('admin.registrations.assign');
     Route::post('/guests/{id}/toggle-paid', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'togglePaid'])->name('admin.guests.toggle_paid');
     Route::post('/guests/{id}/issue-ticket', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'issueTicket'])->name('admin.guests.issue_ticket');

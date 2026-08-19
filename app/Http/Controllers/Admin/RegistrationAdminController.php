@@ -43,7 +43,65 @@ class RegistrationAdminController extends Controller
         return Inertia::render('Admin/Registrations/Show', [
             'registration' => $registration,
             'tables' => $tables,
+            'allergens' => Guest::allergenOptions(),
         ]);
+    }
+
+    /**
+     * Úprava údajov hosťa administrátorom.
+     *
+     * Pravidlá sú zámerne rovnaké ako na verejnom formulári – inak by sa cez
+     * administráciu dali uložiť údaje, ktoré by hosť sám zadať nemohol.
+     */
+    public function updateGuest(Request $request, $id)
+    {
+        $guest = Guest::findOrFail($id);
+
+        $validated = $request->validate([
+            'name'           => ['required', 'string', 'max:255', Guest::FULL_NAME_REGEX],
+            'email'          => 'nullable|email|max:255',
+            'allergen_ids'   => 'nullable|array',
+            'allergen_ids.*' => 'integer|between:1,14',
+            'is_vegan'       => 'boolean',
+            'is_vegetarian'  => 'boolean',
+            'is_teacher'     => 'boolean',
+            'allergen_note'  => 'nullable|string|max:1000',
+            'note'           => 'nullable|string|max:1000',
+        ], [
+            'name.required' => 'Zadajte meno a priezvisko hosťa.',
+            'name.regex'    => 'Zadajte meno aj priezvisko (napr. Jana Nováková).',
+        ]);
+
+        $guest->update([
+            'name'          => $validated['name'],
+            'email'         => $validated['email'] ?? null,
+            'allergen_ids'  => $validated['allergen_ids'] ?? [],
+            'is_vegan'      => $validated['is_vegan'] ?? false,
+            'is_vegetarian' => $validated['is_vegetarian'] ?? false,
+            'is_teacher'    => $validated['is_teacher'] ?? false,
+            'allergen_note' => $validated['allergen_note'] ?? null,
+            'note'          => $validated['note'] ?? null,
+        ]);
+
+        return back()->with('success', "Údaje hosťa {$guest->name} boli uložené.");
+    }
+
+    /** Kontaktné údaje rezervácie – adresa, na ktorú chodia potvrdenia. */
+    public function updateContact(Request $request, $id)
+    {
+        $registration = Registration::findOrFail($id);
+
+        $validated = $request->validate([
+            'registrant_name'  => ['required', 'string', 'max:255'],
+            'registrant_email' => ['required', 'email', 'max:255'],
+        ], [
+            'registrant_name.required'  => 'Zadajte meno kontaktnej osoby.',
+            'registrant_email.required' => 'Zadajte kontaktný e-mail.',
+        ]);
+
+        $registration->update($validated);
+
+        return back()->with('success', 'Kontaktné údaje rezervácie boli uložené.');
     }
 
     public function assignSeat(Request $request, $id)
