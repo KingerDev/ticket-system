@@ -33,7 +33,7 @@ defineProps({
             </h2>
             
             <p class="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-lg mx-auto leading-relaxed">
-                Vaša registrácia na <strong class="text-gray-900 dark:text-gray-200">Univerzitné Beánie 2026</strong> bola úspešne prijatá.
+                Vaša registrácia na <strong class="text-gray-900 dark:text-gray-200">Beánie EF UMB 2026</strong> bola úspešne prijatá.
             </p>
 
             <div class="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-6 sm:p-8 border border-gray-100 dark:border-gray-700 mb-8 max-w-md mx-auto text-left shadow-sm">
