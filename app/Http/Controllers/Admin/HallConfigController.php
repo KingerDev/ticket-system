@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\HallConfig;
 use App\Models\Table;
@@ -84,6 +85,19 @@ class HallConfigController extends Controller
                 ]);
             }
         });
+
+        ActivityLog::record(
+            'hall.updated',
+            sprintf(
+                'Zmenil rozloženie sály: %d radov, %d miest pri stole (pribudlo %d, ubudlo %d stolov)',
+                $validated['num_rows'],
+                $validated['seats_per_table'],
+                count($namesToAdd),
+                count($namesToRemove),
+            ),
+            null,
+            ['pridané' => $namesToAdd, 'odobraté' => $namesToRemove],
+        );
 
         return redirect()->route('admin.hall.edit')->with('success', 'Konfigurácia sály bola úspešne uložená.');
     }

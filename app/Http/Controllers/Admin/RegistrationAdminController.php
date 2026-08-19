@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\Registration;
 use App\Models\Table;
@@ -72,6 +73,11 @@ class RegistrationAdminController extends Controller
             'name.regex'    => 'Zadajte meno aj priezvisko (napr. Jana Nováková).',
         ]);
 
+        $before = $guest->only([
+            'name', 'email', 'allergen_ids', 'is_vegan', 'is_vegetarian',
+            'is_teacher', 'allergen_note', 'note',
+        ]);
+
         $guest->update([
             'name'          => $validated['name'],
             'email'         => $validated['email'] ?? null,
@@ -82,6 +88,13 @@ class RegistrationAdminController extends Controller
             'allergen_note' => $validated['allergen_note'] ?? null,
             'note'          => $validated['note'] ?? null,
         ]);
+
+        ActivityLog::record(
+            'guest.updated',
+            "Upravil údaje hosťa {$guest->name} (rezervácia {$guest->registration->reservation_number})",
+            $guest,
+            ActivityLog::diff($before, $guest->only(array_keys($before))),
+        );
 
         return back()->with('success', "Údaje hosťa {$guest->name} boli uložené.");
     }
@@ -103,12 +116,22 @@ class RegistrationAdminController extends Controller
             $reservationNumber = $registration->reservation_number;
             $registration->delete(); // hostia sa zmažú kaskádou
 
+            ActivityLog::record(
+                'registration.deleted',
+                "Odstránil hosťa {$guestName} a s ním prázdnu rezerváciu {$reservationNumber}",
+            );
+
             return redirect()
                 ->route('admin.registrations.index')
                 ->with('success', "Hosť {$guestName} bol odstránený a s ním aj prázdna rezervácia {$reservationNumber}.");
         }
 
         $guest->delete();
+
+        ActivityLog::record(
+            'guest.deleted',
+            "Odstránil hosťa {$guestName} z rezervácie {$registration?->reservation_number}",
+        );
 
         return back()->with('success', "Hosť {$guestName} bol odstránený.");
     }
@@ -126,7 +149,15 @@ class RegistrationAdminController extends Controller
             'registrant_email.required' => 'Zadajte kontaktný e-mail.',
         ]);
 
+        $before = $registration->only(['registrant_name', 'registrant_email']);
         $registration->update($validated);
+
+        ActivityLog::record(
+            'registration.contact_updated',
+            "Upravil kontakt rezervácie {$registration->reservation_number}",
+            $registration,
+            ActivityLog::diff($before, $registration->only(array_keys($before))),
+        );
 
         return back()->with('success', 'Kontaktné údaje rezervácie boli uložené.');
     }
@@ -156,6 +187,14 @@ class RegistrationAdminController extends Controller
             'seat_number' => $request->seat_number,
         ]);
 
+        $table = Table::find($request->table_id);
+
+        ActivityLog::record(
+            'guest.seat_assigned',
+            "Pridelil hosťovi {$guest->name} miesto {$request->seat_number} pri stole {$table?->name}",
+            $guest,
+        );
+
         return back()->with('success', "Miesto pre {$guest->name} bolo úspešne pridelené.");
     }
 
@@ -167,6 +206,14 @@ class RegistrationAdminController extends Controller
             'paid'    => $nowPaid,
             'paid_at' => $nowPaid ? now() : null,
         ]);
+
+        ActivityLog::record(
+            'guest.paid_toggled',
+            $nowPaid
+                ? "Označil platbu hosťa {$guest->name} ako uhradenú"
+                : "Zrušil označenie platby hosťa {$guest->name}",
+            $guest,
+        );
 
         $message = $nowPaid ? "Platba pre {$guest->name} označená ako zaplatená." : "Platba pre {$guest->name} bola zrušená.";
         return back()->with('success', $message);
@@ -197,6 +244,12 @@ class RegistrationAdminController extends Controller
                 'ticket_issued' => true,
             ]);
         }
+
+        ActivityLog::record(
+            'guest.ticket_issued',
+            "Vydal lístok č. {$guest->ticket_code} hosťovi {$guest->name}",
+            $guest,
+        );
 
         return back()
             ->with('success', "Lístok bol úspešne vydaný pre hosťa {$guest->name}.")

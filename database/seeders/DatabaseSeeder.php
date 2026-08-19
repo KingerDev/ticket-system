@@ -62,6 +62,8 @@ class DatabaseSeeder extends Seeder
         $user = $existing ?: new User();
         $user->name  = $name;
         $user->email = $email;
+        // Prvý účet musí byť super admin, inak by nebolo možné zakladať ďalších.
+        $user->is_super_admin = true;
 
         if ($password !== null) {
             // Model má cast 'password' => 'hashed', hashuje sa automaticky.
@@ -73,6 +75,7 @@ class DatabaseSeeder extends Seeder
         $user->save();
 
         $this->good($existing ? 'aktualizovaný' : 'vytvorený', $email);
+        $this->good('rola', 'super administrátor');
 
         if ($generated !== null) {
             $this->warn('heslo', 'vygenerované: ' . $generated);

@@ -51,6 +51,20 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Export
                                 </NavLink>
+                                <NavLink
+                                    v-if="$page.props.auth.user.is_super_admin"
+                                    :href="route('admin.users.index')"
+                                    :active="route().current('admin.users.index')"
+                                >
+                                    Používatelia
+                                </NavLink>
+                                <NavLink
+                                    v-if="$page.props.auth.user.is_super_admin"
+                                    :href="route('admin.activity_log')"
+                                    :active="route().current('admin.activity_log')"
+                                >
+                                    Záznam činnosti
+                                </NavLink>
                             </div>
                         </div>
 
@@ -157,6 +171,20 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('dashboard')"
                         >
                             Dashboard
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            v-if="$page.props.auth.user.is_super_admin"
+                            :href="route('admin.users.index')"
+                            :active="route().current('admin.users.index')"
+                        >
+                            Používatelia
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            v-if="$page.props.auth.user.is_super_admin"
+                            :href="route('admin.activity_log')"
+                            :active="route().current('admin.activity_log')"
+                        >
+                            Záznam činnosti
                         </ResponsiveNavLink>
                     </div>
 

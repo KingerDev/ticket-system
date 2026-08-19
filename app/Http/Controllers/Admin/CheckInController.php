@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Guest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -48,6 +49,12 @@ class CheckInController extends Controller
             'checked_in' => true,
             'checked_in_at' => now(),
         ]);
+
+        ActivityLog::record(
+            'guest.checked_in',
+            "Zapísal pri vstupe hosťa {$guest->name} (lístok č. {$guest->ticket_code})",
+            $guest,
+        );
 
         return back()->with('success_guest', [
             'name'       => $guest->name,

@@ -39,6 +39,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::get('/checkin', [\App\Http\Controllers\Admin\CheckInController::class, 'index'])->name('admin.checkin');
     Route::post('/checkin', [\App\Http\Controllers\Admin\CheckInController::class, 'store'])->name('admin.checkin.store');
 
+    // Používatelia a auditný log – len pre super administrátora
+    Route::middleware('super_admin')->group(function () {
+        Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('admin.users.index');
+        Route::post('/users', [\App\Http\Controllers\Admin\UserController::class, 'store'])->name('admin.users.store');
+        Route::patch('/users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'update'])->name('admin.users.update');
+        Route::delete('/users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'destroy'])->name('admin.users.destroy');
+
+        Route::get('/activity-log', [\App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activity_log');
+    });
+
     // Hall Config & Tables Map
     Route::get('/hall', [\App\Http\Controllers\Admin\HallConfigController::class, 'edit'])->name('admin.hall.edit');
     Route::post('/hall', [\App\Http\Controllers\Admin\HallConfigController::class, 'update'])->name('admin.hall.update');

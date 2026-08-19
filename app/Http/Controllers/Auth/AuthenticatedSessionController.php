@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,8 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        ActivityLog::record('auth.login', 'Prihlásil sa do administrácie');
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
@@ -41,6 +44,9 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Zaznamenať ešte pred odhlásením, kým je používateľ známy.
+        ActivityLog::record('auth.logout', 'Odhlásil sa z administrácie');
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
