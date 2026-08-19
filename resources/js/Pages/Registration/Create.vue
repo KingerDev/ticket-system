@@ -76,6 +76,15 @@ const removeGuest = (index) => {
     }
 };
 
+/** Slovenské skloňovanie: 1 hosťa, 2 hostí, 5 hostí. */
+const guestCountLabel = computed(() =>
+    form.guests.length === 1 ? '1 hosťa' : `${form.guests.length} hostí`
+);
+
+const hasErrors = computed(() =>
+    Object.keys(form.errors).length > 0 || Object.keys(nameErrors.value).length > 0
+);
+
 const submit = () => {
     if (!validateNames()) return;
 
@@ -92,12 +101,42 @@ const submit = () => {
                 <h2 class="text-center text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
                     Registrácia na Beánie EF UMB 2026
                 </h2>
-                <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-                    Vyplňte formulár pre každého hosťa. Potvrdenie bude zaslané na e-mail prvého hosťa.
+                <p class="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
+                    Jednou registráciou prihlásite aj viac ľudí naraz – stačí pridať ďalšieho hosťa.
                 </p>
+
+                <!-- Čo bude nasledovať: bez tohto ľudia po odoslaní čakajú lístky, ktoré ešte neprídu. -->
+                <ol class="mt-5 space-y-2 text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                        <span>Vyplníte údaje za každého hosťa a odošlete registráciu.</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                        <span>Na e-mail vám pošleme potvrdenie s číslom rezervácie.</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                        <span>Lístky dostanete až po uhradení platby a výbere stola.</span>
+                    </li>
+                </ol>
             </div>
 
             <form @submit.prevent="submit" class="mt-8 space-y-6">
+                <!-- Súhrn chýb: pri dlhšom formulári nie je vidieť, kde presne je problém. -->
+                <div
+                    v-if="hasErrors"
+                    class="flex gap-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 p-4"
+                    role="alert"
+                >
+                    <svg class="h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    <p class="text-sm text-red-700 dark:text-red-300">
+                        Registráciu sa nepodarilo odoslať. Skontrolujte polia označené červenou a skúste to znova.
+                    </p>
+                </div>
+
                 <div class="space-y-6">
                     <div
                         v-for="(guest, index) in form.guests"
@@ -108,6 +147,8 @@ const submit = () => {
                             v-if="form.guests.length > 1"
                             @click.prevent="removeGuest(index)"
                             type="button"
+                            title="Odstrániť tohto hosťa"
+                            :aria-label="`Odstrániť ${index + 1}. hosťa`"
                             class="absolute top-4 right-4 text-red-500 hover:text-red-700 dark:text-red-400"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,12 +156,18 @@ const submit = () => {
                             </svg>
                         </button>
 
-                        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
-                            Hosť #{{ index + 1 }}
+                        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                            {{ index + 1 }}. hosť
+                            <span
+                                v-if="index === 0"
+                                class="normal-case tracking-normal text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                            >
+                                kontaktná osoba
+                            </span>
                         </h4>
 
-                        <div class="space-y-4">
-                            <!-- Name + Email -->
+                        <div class="space-y-5">
+                            <!-- Meno + e-mail -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <InputLabel :for="'name_' + index">
@@ -142,24 +189,37 @@ const submit = () => {
                                 </div>
                                 <div>
                                     <InputLabel :for="'email_' + index">
-                                        Email
+                                        E-mail
                                         <span v-if="index === 0" class="text-red-500">*</span>
-                                        <span v-else class="text-gray-400 text-xs ml-1">(nepovinné)</span>
+                                        <span v-else class="text-gray-400 text-xs ml-1 font-normal">(nepovinné)</span>
                                     </InputLabel>
                                     <TextInput
                                         :id="'email_' + index"
                                         type="email"
                                         class="mt-1 block w-full"
                                         v-model="guest.email"
+                                        autocomplete="email"
+                                        :placeholder="index === 0 ? 'jana.novakova@email.sk' : ''"
                                         :required="index === 0"
                                     />
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <template v-if="index === 0">Sem pošleme potvrdenie s číslom rezervácie.</template>
+                                        <template v-else>Vyplňte, ak má hosť dostať informácie aj sám.</template>
+                                    </p>
                                     <InputError class="mt-1" :message="form.errors[`guests.${index}.email`]" />
                                 </div>
                             </div>
 
-                            <!-- Allergens 1–14 -->
-                            <div>
-                                <InputLabel value="Alergény (podľa slovenských noriem)" class="mb-2" />
+                            <!-- Alergény 1–14 -->
+                            <fieldset>
+                                <legend class="block font-medium text-sm text-gray-700 dark:text-gray-300">
+                                    Alergie na jedlo
+                                </legend>
+                                <p class="mt-1 mb-3 text-xs text-gray-500 dark:text-gray-400">
+                                    Označte, čo hosť nesmie jesť – kuchyňa podľa toho pripraví jedlo.
+                                    Čísla zodpovedajú oficiálnemu zoznamu 14 alergénov, ktorý používajú reštaurácie.
+                                    Ak hosť alergiu nemá, nechajte prázdne.
+                                </p>
                                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
                                     <label
                                         v-for="allergen in ALLERGENS"
@@ -178,42 +238,49 @@ const submit = () => {
                                     </label>
                                 </div>
                                 <InputError class="mt-1" :message="form.errors[`guests.${index}.allergen_ids`]" />
-                            </div>
+                            </fieldset>
 
-                            <!-- Vegan / Vegetarian -->
-                            <div class="flex gap-6">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" v-model="guest.is_vegan" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
-                                    <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">Vegán</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" v-model="guest.is_vegetarian" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
-                                    <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">Vegetarián</span>
-                                </label>
-                            </div>
+                            <!-- Vegán / vegetarián -->
+                            <fieldset>
+                                <legend class="block font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                    Špeciálna strava
+                                </legend>
+                                <div class="flex gap-6">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" v-model="guest.is_vegan" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">Vegán</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" v-model="guest.is_vegetarian" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">Vegetarián</span>
+                                    </label>
+                                </div>
+                            </fieldset>
 
-                            <!-- Allergen note + General note -->
+                            <!-- Poznámky -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <InputLabel :for="'allergen_note_' + index" value="Poznámka k alergénom" />
+                                    <InputLabel :for="'allergen_note_' + index" value="Doplnenie k alergiám" />
                                     <textarea
                                         :id="'allergen_note_' + index"
                                         v-model="guest.allergen_note"
                                         rows="2"
                                         class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                        placeholder="Napr. silná alergia na orechy..."
+                                        placeholder="Napr. celiakia, silná alergia na orechy"
                                     ></textarea>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Nepovinné</p>
                                     <InputError class="mt-1" :message="form.errors[`guests.${index}.allergen_note`]" />
                                 </div>
                                 <div>
-                                    <InputLabel :for="'note_' + index" value="Všeobecná poznámka" />
+                                    <InputLabel :for="'note_' + index" value="Odkaz pre organizátorov" />
                                     <textarea
                                         :id="'note_' + index"
                                         v-model="guest.note"
                                         rows="2"
                                         class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                        placeholder="Akákoľvek iná informácia..."
+                                        placeholder="Napr. chceme sedieť spolu, potrebujem bezbariérový prístup"
                                     ></textarea>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Nepovinné</p>
                                     <InputError class="mt-1" :message="form.errors[`guests.${index}.note`]" />
                                 </div>
                             </div>
@@ -221,7 +288,7 @@ const submit = () => {
                     </div>
                 </div>
 
-                <!-- Add guest -->
+                <!-- Pridanie hosťa -->
                 <button
                     @click.prevent="addGuest"
                     type="button"
@@ -239,8 +306,12 @@ const submit = () => {
                         :class="{ 'opacity-25': form.processing }"
                         :disabled="form.processing"
                     >
-                        Potvrdiť rezerváciu (Počet hostí: {{ form.guests.length }})
+                        <span v-if="form.processing">Odosielam…</span>
+                        <span v-else>Odoslať registráciu pre {{ guestCountLabel }}</span>
                     </PrimaryButton>
+                    <p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                        Polia označené <span class="text-red-500">*</span> sú povinné. Odoslaním vás ešte k ničomu nezaväzujeme – platba prebieha až v ďalšom kroku.
+                    </p>
                 </div>
             </form>
         </div>
