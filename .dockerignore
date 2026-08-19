@@ -1,0 +1,60 @@
+# Git / editory
+.git
+.gitignore
+.gitattributes
+.github
+.idea
+.vscode
+.fleet
+.nova
+.zed
+.phpactor.json
+.DS_Store
+Thumbs.db
+
+# Závislosti – inštalujú sa v obraze
+vendor
+node_modules
+
+# Tajomstvá – konfigurácia ide výhradne cez env premenné kontajnera
+.env
+.env.*
+!.env.example
+auth.json
+
+# Artefakty buildu – Vite ich stavia v samostatnej stage
+public/build
+public/hot
+public/storage
+
+# Lokálne dáta a cache
+database/*.sqlite
+database/*.sqlite-journal
+storage/app/public/*
+storage/debugbar
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/logs/*
+storage/pail
+bootstrap/cache/*
+*.log
+
+# Testy a vývojárske nástroje – v produkčnom obraze netreba
+tests
+phpunit.xml
+.phpunit.result.cache
+.phpunit.cache
+Homestead.json
+Homestead.yaml
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Dokumentácia a prílohy
+README.md
+*.md
+*.pdf

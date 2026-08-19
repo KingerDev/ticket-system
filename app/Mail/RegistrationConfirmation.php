@@ -30,7 +30,7 @@ class RegistrationConfirmation extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Potvrdenie rezervácie na Ples',
+            subject: 'Potvrdenie rezervácie na Beániu',
         );
     }
 

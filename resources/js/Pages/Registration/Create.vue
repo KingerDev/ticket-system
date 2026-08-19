@@ -37,23 +37,60 @@ const form = useForm({
     guests: [newGuest()],
 });
 
-const addGuest = () => form.guests.push(newGuest());
+// Meno aj priezvisko je povinné pre každého hosťa – aspoň dve slová.
+const FULL_NAME_RE = /^\p{L}[\p{L}\p{M}'\-.]*(\s+\p{L}[\p{L}\p{M}'\-.]*)+$/u;
 
-const removeGuest = (index) => {
-    if (form.guests.length > 1) form.guests.splice(index, 1);
+const nameErrors = ref({});
+
+const clearNameError = (index) => {
+    delete nameErrors.value[index];
 };
 
-const submit = () => form.post(route('register.store'));
+const validateNames = () => {
+    const errors = {};
+
+    form.guests.forEach((guest, index) => {
+        const name = (guest.name ?? '').trim();
+
+        if (name === '') {
+            errors[index] = 'Zadajte meno a priezvisko.';
+        } else if (!FULL_NAME_RE.test(name)) {
+            errors[index] = 'Zadajte meno aj priezvisko (napr. Jana Nováková).';
+        }
+    });
+
+    nameErrors.value = errors;
+
+    return Object.keys(errors).length === 0;
+};
+
+const addGuest = () => {
+    form.guests.push(newGuest());
+    nameErrors.value = {};
+};
+
+const removeGuest = (index) => {
+    if (form.guests.length > 1) {
+        form.guests.splice(index, 1);
+        nameErrors.value = {};
+    }
+};
+
+const submit = () => {
+    if (!validateNames()) return;
+
+    form.post(route('register.store'));
+};
 </script>
 
 <template>
-    <Head title="Registrácia na Ples" />
+    <Head title="Registrácia na Beániu" />
 
     <div class="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div class="max-w-3xl w-full space-y-8 bg-white dark:bg-gray-800 px-4 py-8 sm:p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
             <div>
                 <h2 class="text-center text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-                    Registrácia na Ples
+                    Registrácia na Beániu
                 </h2>
                 <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
                     Vyplňte formulár pre každého hosťa. Potvrdenie bude zaslané na e-mail prvého hosťa.
@@ -86,16 +123,22 @@ const submit = () => form.post(route('register.store'));
                             <!-- Name + Email -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <InputLabel :for="'name_' + index" value="Meno a priezvisko" />
+                                    <InputLabel :for="'name_' + index">
+                                        Meno a priezvisko
+                                        <span class="text-red-500">*</span>
+                                    </InputLabel>
                                     <TextInput
                                         :id="'name_' + index"
                                         type="text"
                                         class="mt-1 block w-full"
                                         v-model="guest.name"
                                         required
+                                        autocomplete="name"
+                                        placeholder="Napr. Jana Nováková"
                                         :autofocus="index === 0"
+                                        @input="clearNameError(index)"
                                     />
-                                    <InputError class="mt-1" :message="form.errors[`guests.${index}.name`]" />
+                                    <InputError class="mt-1" :message="nameErrors[index] || form.errors[`guests.${index}.name`]" />
                                 </div>
                                 <div>
                                     <InputLabel :for="'email_' + index">

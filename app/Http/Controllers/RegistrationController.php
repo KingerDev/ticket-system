@@ -12,6 +12,9 @@ use Inertia\Inertia;
 
 class RegistrationController extends Controller
 {
+    /** Aspoň dve slová – meno aj priezvisko. */
+    private const FULL_NAME_REGEX = "regex:/^\\p{L}[\\p{L}\\p{M}'\\-.]*(\\s+\\p{L}[\\p{L}\\p{M}'\\-.]*)+$/u";
+
     public function create()
     {
         return Inertia::render('Registration/Create');
@@ -21,7 +24,8 @@ class RegistrationController extends Controller
     {
         $validated = $request->validate([
             'guests'                        => 'required|array|min:1',
-            'guests.*.name'                 => 'required|string|max:255',
+            // Meno aj priezvisko je povinné pre každého hosťa (aspoň dve slová).
+            'guests.*.name'                 => ['required', 'string', 'max:255', self::FULL_NAME_REGEX],
             'guests.*.email'                => 'nullable|email|max:255',
             'guests.*.allergen_ids'         => 'nullable|array',
             'guests.*.allergen_ids.*'       => 'integer|between:1,14',
@@ -29,6 +33,9 @@ class RegistrationController extends Controller
             'guests.*.is_vegetarian'        => 'nullable|boolean',
             'guests.*.allergen_note'        => 'nullable|string|max:1000',
             'guests.*.note'                 => 'nullable|string|max:1000',
+        ], [
+            'guests.*.name.required' => 'Zadajte meno a priezvisko hosťa.',
+            'guests.*.name.regex'    => 'Zadajte meno aj priezvisko (napr. Jana Nováková).',
         ]);
 
         $registration = DB::transaction(function () use ($validated) {
