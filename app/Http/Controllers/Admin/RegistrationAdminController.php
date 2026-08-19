@@ -86,6 +86,33 @@ class RegistrationAdminController extends Controller
         return back()->with('success', "Údaje hosťa {$guest->name} boli uložené.");
     }
 
+    /**
+     * Odstránenie hosťa.
+     *
+     * Miesto sa uvoľní samo, lebo väzba je na riadku hosťa. Ak ide o
+     * posledného hosťa rezervácie, zmažeme aj rezerváciu – prázdna by
+     * zostala visieť v zozname bez toho, aby sa dala odstrániť.
+     */
+    public function destroyGuest($id)
+    {
+        $guest = Guest::with('registration')->findOrFail($id);
+        $registration = $guest->registration;
+        $guestName = $guest->name;
+
+        if ($registration && $registration->guests()->count() <= 1) {
+            $reservationNumber = $registration->reservation_number;
+            $registration->delete(); // hostia sa zmažú kaskádou
+
+            return redirect()
+                ->route('admin.registrations.index')
+                ->with('success', "Hosť {$guestName} bol odstránený a s ním aj prázdna rezervácia {$reservationNumber}.");
+        }
+
+        $guest->delete();
+
+        return back()->with('success', "Hosť {$guestName} bol odstránený.");
+    }
+
     /** Kontaktné údaje rezervácie – adresa, na ktorú chodia potvrdenia. */
     public function updateContact(Request $request, $id)
     {

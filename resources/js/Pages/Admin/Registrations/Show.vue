@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import TableMap from '../TableMap.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import Modal from '@/Components/Modal.vue';
@@ -109,6 +109,31 @@ const saveGuest = () => {
     editForm.patch(route('admin.guests.update', editingGuest.value.id), {
         preserveScroll: true,
         onSuccess: () => { showEditModal.value = false; },
+    });
+};
+
+// --- Odstránenie hosťa -----------------------------------------------------
+
+const showDeleteModal = ref(false);
+const deletingGuest = ref(null);
+const deleting = ref(false);
+
+/** Posledný hosť: s ním padne celá rezervácia, na to treba upozorniť zvlášť. */
+const isLastGuest = computed(() => props.registration.guests.length <= 1);
+
+const openDeleteModal = (guest) => {
+    deletingGuest.value = guest;
+    showDeleteModal.value = true;
+};
+
+const confirmDelete = () => {
+    deleting.value = true;
+    router.delete(route('admin.guests.destroy', deletingGuest.value.id), {
+        preserveScroll: true,
+        onFinish: () => {
+            deleting.value = false;
+            showDeleteModal.value = false;
+        },
     });
 };
 
@@ -257,6 +282,14 @@ const closeTicketModal = () => {
                                         class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
                                     >
                                         Upraviť údaje
+                                    </button>
+
+                                    <button
+                                        @click="openDeleteModal(guest)"
+                                        title="Odstrániť hosťa z rezervácie"
+                                        class="px-3 py-1.5 border border-red-200 dark:border-red-900/50 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 bg-white dark:bg-gray-800"
+                                    >
+                                        Odstrániť
                                     </button>
 
                                     <button
@@ -457,6 +490,54 @@ const closeTicketModal = () => {
                     </PrimaryButton>
                 </div>
             </form>
+        </Modal>
+
+        <!-- Potvrdenie odstránenia hosťa -->
+        <Modal :show="showDeleteModal" @close="showDeleteModal = false" maxWidth="lg">
+            <div class="p-6" v-if="deletingGuest">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Odstrániť hosťa</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    Naozaj chcete odstrániť hosťa <strong class="text-gray-900 dark:text-gray-100">{{ deletingGuest.name }}</strong>?
+                    Túto akciu nie je možné vrátiť späť.
+                </p>
+
+                <!-- Čo sa odstránením stratí – admin to musí vidieť pred kliknutím. -->
+                <ul class="mb-4 space-y-1.5 text-sm">
+                    <li v-if="deletingGuest.table_id" class="text-gray-600 dark:text-gray-400">
+                        Uvoľní sa miesto {{ deletingGuest.seat_number }} pri stole {{ deletingGuest.table?.name }}.
+                    </li>
+                    <li v-if="deletingGuest.paid" class="text-amber-700 dark:text-amber-400 font-medium">
+                        Hosť má označenú uhradenú platbu.
+                    </li>
+                    <li v-if="deletingGuest.ticket_issued" class="text-amber-700 dark:text-amber-400 font-medium">
+                        Hosťovi už bol vydaný lístok č. {{ deletingGuest.ticket_code }}.
+                    </li>
+                    <li v-if="deletingGuest.checked_in" class="text-amber-700 dark:text-amber-400 font-medium">
+                        Hosť už bol zapísaný pri vstupe.
+                    </li>
+                </ul>
+
+                <div v-if="isLastGuest" class="mb-6 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300">
+                    Toto je posledný hosť rezervácie, takže sa odstráni aj celá rezervácia
+                    <strong>{{ registration.reservation_number }}</strong>.
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button
+                        @click="showDeleteModal = false"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                        Zrušiť
+                    </button>
+                    <button
+                        @click="confirmDelete"
+                        :disabled="deleting"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {{ deleting ? 'Odstraňujem…' : (isLastGuest ? 'Odstrániť aj rezerváciu' : 'Odstrániť hosťa') }}
+                    </button>
+                </div>
+            </div>
         </Modal>
 
         <!-- Issue Ticket Confirmation Modal -->
