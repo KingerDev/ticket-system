@@ -48,11 +48,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
         Route::delete('/users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'destroy'])->name('admin.users.destroy');
 
         Route::get('/activity-log', [\App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activity_log');
+
+        // Rozloženie sály mení stoly všetkým naraz, preto len super admin.
+        Route::get('/hall', [\App\Http\Controllers\Admin\HallConfigController::class, 'edit'])->name('admin.hall.edit');
+        Route::post('/hall', [\App\Http\Controllers\Admin\HallConfigController::class, 'update'])->name('admin.hall.update');
     });
 
     // Hall Config & Tables Map
-    Route::get('/hall', [\App\Http\Controllers\Admin\HallConfigController::class, 'edit'])->name('admin.hall.edit');
-    Route::post('/hall', [\App\Http\Controllers\Admin\HallConfigController::class, 'update'])->name('admin.hall.update');
     Route::get('/tables/map', [\App\Http\Controllers\Admin\HallConfigController::class, 'map'])->name('admin.tables.map');
 });
 
