@@ -115,4 +115,19 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Adresa na odpoveď
+    |--------------------------------------------------------------------------
+    |
+    | Resend odosielanú poštu neprijíma – odpoveď na odosielaciu adresu by
+    | nikam nedošla. Sem patrí skutočná schránka organizátorov.
+    |
+    */
+
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS'),
+        'name' => env('MAIL_REPLY_TO_NAME'),
+    ],
+
 ];

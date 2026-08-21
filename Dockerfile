@@ -116,11 +116,14 @@ COPY <<'EOF' /usr/local/etc/php-fpm.d/zz-app.conf
 clear_env = no
 catch_workers_output = yes
 decorate_workers_output = no
+; Strop je nastavený na malý VPS: 5 x memory_limit (512M) je najhorší možný
+; prípad. Bežný Laravel request spotrebuje 60-120 MB, takže reálne ide o ~0,5 GB.
+; Pri 20 potomkoch by teoretické maximum bolo 10 GB na 4 GB stroji.
 pm = dynamic
-pm.max_children = 20
-pm.start_servers = 4
-pm.min_spare_servers = 2
-pm.max_spare_servers = 6
+pm.max_children = 5
+pm.start_servers = 2
+pm.min_spare_servers = 1
+pm.max_spare_servers = 3
 pm.max_requests = 500
 EOF
 

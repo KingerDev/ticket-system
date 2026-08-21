@@ -13,6 +13,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "rap2hpoutre/fast-excel": "^5.6",
+        "resend/resend-php": "^1.10",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {

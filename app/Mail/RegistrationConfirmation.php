@@ -7,10 +7,11 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class RegistrationConfirmation extends Mailable
+class RegistrationConfirmation extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -29,8 +30,13 @@ class RegistrationConfirmation extends Mailable
      */
     public function envelope(): Envelope
     {
+        $replyTo = config('mail.reply_to.address');
+
         return new Envelope(
             subject: 'Potvrdenie rezervácie na Beánie',
+            // Bez toho by odpoveď hosťa skončila na odosielacej adrese,
+            // ktorá poštu neprijíma.
+            replyTo: $replyTo ? [new Address($replyTo, config('mail.reply_to.name') ?? '')] : [],
         );
     }
 

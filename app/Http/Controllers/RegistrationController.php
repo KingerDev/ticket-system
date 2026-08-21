@@ -61,7 +61,9 @@ class RegistrationController extends Controller
             return $registration;
         });
 
-        Mail::to($registration->registrant_email)->send(new RegistrationConfirmation($registration));
+        // Zámerne queue() a nie send(): pri synchrónnom odosielaní by výpadok
+        // SMTP skončil chybou 500, hoci registrácia je už uložená.
+        Mail::to($registration->registrant_email)->queue(new RegistrationConfirmation($registration));
 
         return redirect()->route('register.success')->with('reservation_number', $registration->reservation_number);
     }
