@@ -115,17 +115,63 @@ class AdminAccessTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $user->id]);
     }
 
-    public function test_profil_sa_zobrazi_a_da_upravit(): void
+    public function test_profil_sa_zobrazi(): void
     {
-        $user = $this->admin();
+        $this->actingAs($this->admin())->get(route('profile.edit'))->assertOk();
+    }
 
-        $this->actingAs($user)->get(route('profile.edit'))->assertOk();
+    public function test_super_admin_si_zmeni_meno_aj_email(): void
+    {
+        $user = $this->superAdmin();
 
         $this->actingAs($user)->patch(route('profile.update'), [
             'name'  => 'Nové Meno',
             'email' => 'nove@ef.umb.sk',
         ])->assertRedirect(route('profile.edit'));
 
-        $this->assertSame('Nové Meno', $user->fresh()->name);
+        $user->refresh();
+        $this->assertSame('Nové Meno', $user->name);
+        $this->assertSame('nove@ef.umb.sk', $user->email);
+    }
+
+    public function test_bezny_admin_si_meno_ani_email_zmenit_nemoze(): void
+    {
+        $user = $this->admin(['name' => 'Pôvodné Meno', 'email' => 'povodny@ef.umb.sk']);
+
+        $this->actingAs($user)->patch(route('profile.update'), [
+            'name'  => 'Podvrhnuté Meno',
+            'email' => 'podvrh@ef.umb.sk',
+        ])->assertForbidden();
+
+        $user->refresh();
+        $this->assertSame('Pôvodné Meno', $user->name);
+        $this->assertSame('povodny@ef.umb.sk', $user->email);
+    }
+
+    public function test_bezny_admin_si_heslo_zmenit_moze(): void
+    {
+        $user = $this->admin();
+
+        $this->actingAs($user)->put(route('password.update'), [
+            'current_password'      => 'HesloHeslo123',
+            'password'              => 'UplneIneHeslo1',
+            'password_confirmation' => 'UplneIneHeslo1',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Auth::validate([
+            'email' => $user->email, 'password' => 'UplneIneHeslo1',
+        ]));
+    }
+
+    public function test_stranka_profilu_hovori_ci_sa_udaje_daju_menit(): void
+    {
+        $vidiBezny = $this->actingAs($this->admin())
+            ->get(route('profile.edit'))->viewData('page')['props']['canEditIdentity'];
+
+        $vidiSpravca = $this->actingAs($this->superAdmin())
+            ->get(route('profile.edit'))->viewData('page')['props']['canEditIdentity'];
+
+        $this->assertFalse($vidiBezny);
+        $this->assertTrue($vidiSpravca);
     }
 }

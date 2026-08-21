@@ -11,6 +11,10 @@ defineProps({
     status: {
         type: String,
     },
+    canEditIdentity: {
+        type: Boolean,
+        default: false,
+    },
 });
 </script>
 
@@ -34,6 +38,7 @@ defineProps({
                     <UpdateProfileInformationForm
                         :must-verify-email="mustVerifyEmail"
                         :status="status"
+                        :can-edit="canEditIdentity"
                         class="max-w-xl"
                     />
                 </div>

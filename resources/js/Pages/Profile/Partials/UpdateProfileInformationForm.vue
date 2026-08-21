@@ -12,6 +12,10 @@ defineProps({
     status: {
         type: String,
     },
+    canEdit: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const user = usePage().props.auth.user;
@@ -30,11 +34,32 @@ const form = useForm({
             </h2>
 
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Upravte meno a e-mailovú adresu svojho účtu.
+                {{ canEdit ? 'Upravte meno a e-mailovú adresu svojho účtu.' : 'Údaje vášho účtu.' }}
             </p>
         </header>
 
+        <!-- Bez oprávnenia sa údaje len zobrazujú – meniť ich smie správca. -->
+        <div v-if="!canEdit" class="mt-6 space-y-4">
+            <div>
+                <InputLabel value="Meno" />
+                <p class="mt-1 text-gray-900 dark:text-gray-100">{{ user.name }}</p>
+            </div>
+
+            <div>
+                <InputLabel value="E-mail" />
+                <p class="mt-1 text-gray-900 dark:text-gray-100">{{ user.email }}</p>
+            </div>
+
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Meno a e-mail mení super administrátor. Ak treba niektorý z údajov opraviť, ozvite sa mu.
+                    <span class="block mt-1">Heslo si viete zmeniť nižšie sami.</span>
+                </p>
+            </div>
+        </div>
+
         <form
+            v-else
             @submit.prevent="form.patch(route('profile.update'))"
             class="mt-6 space-y-6"
         >
