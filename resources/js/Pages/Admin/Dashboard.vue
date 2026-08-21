@@ -44,7 +44,7 @@ const capacityPaidPercentage = computed(() => {
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head title="Prehľad" />
 
     <AuthenticatedLayout>
         <template #header>
