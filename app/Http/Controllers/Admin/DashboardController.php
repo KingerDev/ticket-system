@@ -13,14 +13,17 @@ class DashboardController extends Controller
     public function index()
     {
         $totalRegistrations = Registration::count();
-        $totalGuests = Guest::count();
-        $ticketsIssued = Guest::where('ticket_issued', true)->count();
-        $guestsCheckedIn = Guest::where('checked_in', true)->count();
-        $guestsWithSeats = Guest::whereNotNull('table_id')->count();
-        $teachersCount = Guest::where('is_teacher', true)->count();
-        $studentsCount = Guest::where('is_teacher', false)->count();
-        $paidCount = Guest::where('paid', true)->count();
-        $unpaidCount = Guest::where('paid', false)->count();
+        // Stornovaní hostia sa do prehľadu nerátajú – neprídu a nejedia.
+        $totalGuests = Guest::active()->count();
+        $ticketsIssued = Guest::active()->where('ticket_issued', true)->count();
+        $guestsCheckedIn = Guest::active()->where('checked_in', true)->count();
+        $guestsWithSeats = Guest::active()->whereNotNull('table_id')->count();
+        $teachersCount = Guest::active()->where('is_teacher', true)->count();
+        $studentsCount = Guest::active()->where('is_teacher', false)->count();
+        $paidCount = Guest::active()->where('paid', true)->count();
+        $unpaidCount = Guest::active()->where('paid', false)->count();
+        $overdueCount = Guest::overdue()->count();
+        $cancelledCount = Guest::cancelled()->count();
         $totalCapacity = (int) Table::sum('capacity');
 
         return Inertia::render('Admin/Dashboard', [
@@ -35,6 +38,8 @@ class DashboardController extends Controller
                 'paidCount' => $paidCount,
                 'unpaidCount' => $unpaidCount,
                 'totalCapacity' => $totalCapacity,
+                'overdueCount' => $overdueCount,
+                'cancelledCount' => $cancelledCount,
             ]
         ]);
     }

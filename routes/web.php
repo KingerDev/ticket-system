@@ -27,6 +27,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::post('/guests/{id}/toggle-paid', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'togglePaid'])->name('admin.guests.toggle_paid');
     Route::post('/guests/{id}/issue-ticket', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'issueTicket'])->name('admin.guests.issue_ticket');
 
+    // Pripomienky k nezaplateným rezerváciám a storná
+    Route::get('/reminders', [\App\Http\Controllers\Admin\ReminderController::class, 'index'])->name('admin.reminders.index');
+    Route::post('/reminders/{id}/send', [\App\Http\Controllers\Admin\ReminderController::class, 'sendReminder'])->name('admin.reminders.send');
+    Route::post('/reminders/{id}/final-notice', [\App\Http\Controllers\Admin\ReminderController::class, 'sendFinalNotice'])->name('admin.reminders.final_notice');
+    Route::post('/reminders/{id}/cancel', [\App\Http\Controllers\Admin\ReminderController::class, 'cancel'])->name('admin.reminders.cancel');
+    Route::post('/guests/{id}/restore', [\App\Http\Controllers\Admin\ReminderController::class, 'restore'])->name('admin.guests.restore');
+
     // Seating guide
     Route::get('/seating', [\App\Http\Controllers\Admin\SeatingController::class, 'index'])->name('admin.seating');
     Route::get('/seating/lookup', [\App\Http\Controllers\Admin\SeatingController::class, 'lookup'])->name('admin.seating.lookup');

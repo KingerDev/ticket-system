@@ -73,7 +73,8 @@ const togglePaid = (guest) => {
                                     <!-- Meno -->
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-2">
-                                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ guest.name }}</span>
+                                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ guest.name }}
+                                    <span v-if="guest.cancelled_at" class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Stornovaný</span></span>
                                             <span v-if="guest.is_teacher" class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">Učiteľ</span>
                                         </div>
                                     </td>

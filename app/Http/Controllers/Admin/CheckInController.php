@@ -30,6 +30,10 @@ class CheckInController extends Controller
             return back()->with('error', 'Neplatný lístok. Kód sa nenašiel v systéme.');
         }
 
+        if ($guest->isCancelled()) {
+            return back()->with('error', "Rezervácia hosťa {$guest->name} bola stornovaná. Lístok neplatí.");
+        }
+
         if ($guest->checked_in) {
             return back()
                 ->with('error', "Hosť {$guest->name} bol už skontrolovaný o " . $guest->checked_in_at->format('H:i') . "!")

@@ -34,6 +34,10 @@ class SeatingController extends Controller
 
         $guest = Guest::findOrFail($request->guest_id);
 
+        if ($guest->isCancelled()) {
+            return back()->with('error', "Rezervácia hosťa {$guest->name} bola stornovaná. Lístok neplatí.");
+        }
+
         if ($guest->checked_in) {
             return back()->with(
                 'error',
@@ -89,6 +93,7 @@ class SeatingController extends Controller
                 'table_name'  => $guest->table->name ?? null,
                 'checked_in'    => $guest->checked_in,
                 'checked_in_at' => $guest->checked_in_at?->format('H:i'),
+                'cancelled'     => $guest->isCancelled(),
             ],
             'error' => null,
         ]);

@@ -46,6 +46,12 @@ const showingNavigationDropdown = ref(false);
                                     Usádzač
                                 </NavLink>
                                 <NavLink
+                                    :href="route('admin.reminders.index')"
+                                    :active="route().current('admin.reminders.index')"
+                                >
+                                    Pripomienky
+                                </NavLink>
+                                <NavLink
                                     :href="route('admin.export')"
                                     :active="route().current('admin.export')"
                                 >

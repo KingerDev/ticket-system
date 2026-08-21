@@ -172,6 +172,10 @@ class RegistrationAdminController extends Controller
 
         $registration = Registration::findOrFail($id);
         $guest = $registration->guests()->findOrFail($request->guest_id);
+
+        if ($guest->isCancelled()) {
+            return back()->with('error', "Rezervácia hosťa {$guest->name} je stornovaná. Najprv ju obnovte.");
+        }
         
         // Ensure seat is free
         $seatOccupied = Guest::where('table_id', $request->table_id)
@@ -223,6 +227,10 @@ class RegistrationAdminController extends Controller
     {
         // $id is the guest ID
         $guest = Guest::with('registration', 'table')->findOrFail($id);
+
+        if ($guest->isCancelled()) {
+            return back()->with('error', "Rezervácia hosťa {$guest->name} je stornovaná. Najprv ju obnovte.");
+        }
 
         if (!$guest->table_id || !$guest->seat_number) {
             return back()->with('error', 'Nemožno vydať lístok bez prideleného miesta.');

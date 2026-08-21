@@ -182,6 +182,19 @@ const capacityPaidPercentage = computed(() => {
                                     <div class="bg-red-400 h-3 rounded-full transition-all duration-500" :style="`width: ${100 - paidPercentage}%`"></div>
                                 </div>
                             </div>
+
+                            <div v-if="stats.overdueCount || stats.cancelledCount" class="pt-3 mt-1 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
+                                <Link v-if="stats.overdueCount" :href="route('admin.reminders.index')"
+                                      class="flex justify-between text-sm group">
+                                    <span class="text-gray-700 dark:text-gray-300 group-hover:underline">Po termíne</span>
+                                    <span class="font-semibold text-red-600 dark:text-red-400">{{ stats.overdueCount }}</span>
+                                </Link>
+                                <Link v-if="stats.cancelledCount" :href="route('admin.reminders.index')"
+                                      class="flex justify-between text-sm group">
+                                    <span class="text-gray-500 dark:text-gray-400 group-hover:underline">Stornované</span>
+                                    <span class="font-semibold text-gray-500 dark:text-gray-400">{{ stats.cancelledCount }}</span>
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
@@ -224,6 +237,18 @@ const capacityPaidPercentage = computed(() => {
                             <div>
                                 <h4 class="text-lg font-medium text-gray-900 dark:text-gray-100">Mapa sály</h4>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">Zobrazenie plného stavu sádlania</p>
+                            </div>
+                        </Link>
+
+                        <Link :href="route('admin.reminders.index')" class="flex items-center p-4 bg-white dark:bg-gray-800 border border-transparent rounded-xl shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all cursor-pointer">
+                            <div class="bg-amber-100 text-amber-600 p-3 rounded-lg mr-4 dark:bg-amber-900 dark:text-amber-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-medium text-gray-900 dark:text-gray-100">Pripomienky a storná</h4>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Nezaplatené rezervácie a termíny</p>
                             </div>
                         </Link>
 

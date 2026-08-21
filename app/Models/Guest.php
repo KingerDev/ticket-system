@@ -21,7 +21,55 @@ class Guest extends Model
         'is_vegetarian' => 'boolean',
         'paid'          => 'boolean',
         'paid_at'       => 'datetime',
+        'payment_deadline_at'  => 'datetime',
+        'reminder_sent_at'     => 'datetime',
+        'final_notice_sent_at' => 'datetime',
+        'cancelled_at'         => 'datetime',
     ];
+
+    /** Hostia, ktorí sa plesu reálne zúčastnia – bez stornovaných. */
+    public function scopeActive($query)
+    {
+        return $query->whereNull('cancelled_at');
+    }
+
+    public function scopeCancelled($query)
+    {
+        return $query->whereNotNull('cancelled_at');
+    }
+
+    /** Nezaplatení, ktorých rezervácia ešte platí. */
+    public function scopeAwaitingPayment($query)
+    {
+        return $query->active()->where('paid', false);
+    }
+
+    /** Termín uplynul a stále nie je zaplatené – kandidáti na storno. */
+    public function scopeOverdue($query)
+    {
+        return $query->awaitingPayment()
+            ->whereNotNull('payment_deadline_at')
+            ->where('payment_deadline_at', '<', now());
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->cancelled_at !== null;
+    }
+
+    public function isOverdue(): bool
+    {
+        return ! $this->paid
+            && ! $this->isCancelled()
+            && $this->payment_deadline_at !== null
+            && $this->payment_deadline_at->isPast();
+    }
+
+    /** Koľko dní zostáva do termínu; záporné číslo znamená po termíne. */
+    public function daysToDeadline(): ?int
+    {
+        return $this->payment_deadline_at?->startOfDay()->diffInDays(now()->startOfDay(), false) * -1;
+    }
 
     /**
      * Meno aj priezvisko – aspoň dve slová.

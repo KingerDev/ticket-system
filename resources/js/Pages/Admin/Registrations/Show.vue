@@ -246,7 +246,10 @@ const closeTicketModal = () => {
                                 <div>
                                     <h4 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
                                         {{ guest.name }}
-                                        <span v-if="guest.table_id" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                        <span v-if="guest.cancelled_at" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                            Stornovaný
+                                        </span>
+                                        <span v-else-if="guest.table_id" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                                             Umiestnený
                                         </span>
                                         <span v-else class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
@@ -263,11 +266,15 @@ const closeTicketModal = () => {
                                             <span v-if="guest.allergen_note"> · {{ guest.allergen_note }}</span>
                                         </div>
                                         <div v-if="guest.note" class="text-gray-400 dark:text-gray-500 italic">Poznámka: {{ guest.note }}</div>
+                                        <div v-if="!guest.paid && !guest.cancelled_at && guest.payment_deadline_at" class="text-amber-600 dark:text-amber-400">
+                                            Termín na úhradu: {{ new Date(guest.payment_deadline_at).toLocaleDateString('sk-SK') }}
+                                        </div>
                                         <div v-if="guest.table_id">Stôl: {{ guest.table.name }}, Miesto: {{ guest.seat_number }}</div>
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap gap-2 justify-end">
                                     <button
+                                        v-if="!guest.cancelled_at"
                                         @click="togglePaid(guest)"
                                         class="px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer"
                                         :class="guest.paid
@@ -293,6 +300,7 @@ const closeTicketModal = () => {
                                     </button>
 
                                     <button
+                                        v-if="!guest.cancelled_at"
                                         @click="selectGuestForAssignment(guest)"
                                         class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
                                         :class="{'ring-2 ring-blue-500': activeGuestId === guest.id}"
@@ -304,7 +312,7 @@ const closeTicketModal = () => {
                                         Učiteľ
                                     </span>
                                     <PrimaryButton
-                                        v-if="guest.table_id && !guest.ticket_issued"
+                                        v-if="!guest.cancelled_at && guest.table_id && !guest.ticket_issued"
                                         @click="openIssueModal(guest)"
                                         class="bg-blue-600 hover:bg-blue-700 text-white"
                                     >
