@@ -8,6 +8,7 @@ use App\Models\Registration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class RegistrationController extends Controller
@@ -36,14 +37,19 @@ class RegistrationController extends Controller
         ]);
 
         $registration = DB::transaction(function () use ($validated) {
-            $count = Registration::count() + 1;
-            $reservationNumber = 'PLES-' . str_pad($count, 4, '0', STR_PAD_LEFT);
             $firstGuest = $validated['guests'][0];
 
+            // Číslo sa odvádza od ID, nie od počtu záznamov. Pri počte by po
+            // zmazaní rezervácie dostal ďalší hosť už obsadené číslo a unikátny
+            // index by registráciu odmietol chybou 500.
             $registration = Registration::create([
-                'reservation_number' => $reservationNumber,
+                'reservation_number' => 'DOCASNE-' . Str::uuid(),
                 'registrant_name'    => $firstGuest['name'],
                 'registrant_email'   => $firstGuest['email'] ?? 'bez-emailu@ples.sk',
+            ]);
+
+            $registration->update([
+                'reservation_number' => 'PLES-' . str_pad((string) $registration->id, 4, '0', STR_PAD_LEFT),
             ]);
 
             foreach ($validated['guests'] as $guestData) {
