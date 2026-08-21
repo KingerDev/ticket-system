@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     // Seating guide
     Route::get('/seating', [\App\Http\Controllers\Admin\SeatingController::class, 'index'])->name('admin.seating');
     Route::get('/seating/lookup', [\App\Http\Controllers\Admin\SeatingController::class, 'lookup'])->name('admin.seating.lookup');
+    Route::post('/seating/check-in', [\App\Http\Controllers\Admin\SeatingController::class, 'checkIn'])->name('admin.seating.check_in');
 
     // Export
     Route::get('/export', [\App\Http\Controllers\Admin\ExportController::class, 'index'])->name('admin.export');

@@ -20,6 +20,18 @@ const selectedSeat = computed(() => {
     return { tableId: props.guest.table_id, seatNum: props.guest.seat_number };
 });
 
+const checkingIn = ref(false);
+
+const confirmArrival = () => {
+    if (!props.guest || props.guest.checked_in) return;
+
+    checkingIn.value = true;
+    router.post(route('admin.seating.check_in'), { guest_id: props.guest.id }, {
+        preserveScroll: true,
+        onFinish: () => { checkingIn.value = false; },
+    });
+};
+
 const lookup = () => {
     if (!ticketCode.value) return;
     router.get(route('admin.seating.lookup'), {
@@ -87,6 +99,34 @@ const lookup = () => {
                                 <div class="text-sm text-gray-500 dark:text-gray-400">Miesto ešte nepridelené</div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Príchod hosťa -->
+                    <div class="mt-5 pt-5 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center gap-4">
+                        <div
+                            v-if="guest.checked_in"
+                            class="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                        >
+                            <svg class="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span class="text-sm font-semibold text-green-700 dark:text-green-300">
+                                Príchod potvrdený o {{ guest.checked_in_at }}
+                            </span>
+                        </div>
+
+                        <template v-else>
+                            <button
+                                @click="confirmArrival"
+                                :disabled="checkingIn"
+                                class="px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-base font-bold shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {{ checkingIn ? 'Zapisujem…' : 'Potvrdiť príchod' }}
+                            </button>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">
+                                Hosť zatiaľ nie je zapísaný pri vstupe.
+                            </span>
+                        </template>
                     </div>
                 </div>
 
