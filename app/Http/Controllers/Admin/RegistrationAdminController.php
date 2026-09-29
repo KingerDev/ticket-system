@@ -33,7 +33,8 @@ class RegistrationAdminController extends Controller
             });
         }
 
-        $guests = $query->latest()->paginate(20)->withQueryString();
+        // Najnovšie rezervácie navrchu, hostia v rámci nej v poradí, v akom boli zapísaní.
+        $guests = $query->orderByDesc('registration_id')->orderBy('id')->paginate(20)->withQueryString();
 
         return Inertia::render('Admin/Registrations/Index', [
             'guests'  => $guests,
@@ -147,7 +148,7 @@ class RegistrationAdminController extends Controller
      * Na rozdiel od storna je nevratné – miesta sa uvoľnia a záznam zmizne.
      * V zázname činnosti zostanú mená, nech sa dá dohľadať, čo sa zmazalo.
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $registration = Registration::with('guests')->findOrFail($id);
         $number = $registration->reservation_number;
@@ -168,9 +169,10 @@ class RegistrationAdminController extends Controller
             ['hostia' => $names, 'kontakt' => $registration->registrant_email],
         );
 
-        return redirect()
-            ->route('admin.registrations.index')
-            ->with('success', "Rezervácia {$number} bola zmazaná.");
+        // Zo zoznamu náhradníkov sa maže priamo tam – nech obsluha zostane na mieste.
+        $redirect = $request->boolean('stay') ? back() : redirect()->route('admin.registrations.index');
+
+        return $redirect->with('success', "Rezervácia {$number} bola zmazaná.");
     }
 
     /** Kontaktné údaje rezervácie – adresa, na ktorú chodia potvrdenia. */

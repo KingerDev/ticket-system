@@ -253,4 +253,68 @@ class CapacityAndWaitlistTest extends TestCase
         $this->assertSame('Učiteľ', $props['tables'][0]['seat_blocks'][0]['label']);
         $this->assertSame(3, $props['capacity']['free']);
     }
+
+    // --- plná sála ---------------------------------------------------------
+
+    public function test_v_plnej_sale_nemozno_rezervovat_dalsiu_stolicku(): void
+    {
+        $table = $this->smallHall(2);
+        $this->actingAs($this->admin());
+        // Dvaja hostia bez prideleného miesta – stoličky vyzerajú voľné, ale sála je plná.
+        $this->reservation([['name' => 'Jana Nováková'], ['name' => 'Peter Malý']]);
+
+        $this->post(route('admin.seat_blocks.store'), ['table_id' => $table->id, 'seat_number' => 1])
+            ->assertSessionHas('error');
+
+        $this->assertSame(0, SeatBlock::count());
+    }
+
+    public function test_v_plnej_sale_nemozno_obnovit_stornovaneho(): void
+    {
+        $this->smallHall(1);
+        $this->actingAs($this->admin());
+        $this->reservation([['name' => 'Jana Nováková']]);
+        $stornovany = $this->reservation([['name' => 'Peter Malý', 'cancelled_at' => now()]])->guests->first();
+
+        $this->post(route('admin.guests.restore', $stornovany->id))->assertSessionHas('error');
+
+        $this->assertNotNull($stornovany->fresh()->cancelled_at);
+        $this->assertSame(0, Capacity::free());
+    }
+
+    public function test_obnovenie_ked_je_miesto_prejde(): void
+    {
+        $this->smallHall(1);
+        $this->actingAs($this->admin());
+        $stornovany = $this->reservation([['name' => 'Peter Malý', 'cancelled_at' => now()]])->guests->first();
+
+        $this->post(route('admin.guests.restore', $stornovany->id))->assertSessionHas('success');
+
+        $this->assertNull($stornovany->fresh()->cancelled_at);
+    }
+
+    public function test_nahradnika_mozno_zmazat_zo_zoznamu(): void
+    {
+        $this->smallHall(1);
+        $this->actingAs($this->admin());
+        $nahradnik = $this->reservation([['name' => 'Jana Nováková'], ['name' => 'Peter Malý']], ['waitlisted_at' => now()]);
+
+        $this->from(route('admin.waitlist.index'))
+            ->delete(route('admin.registrations.destroy', $nahradnik->id), ['stay' => true])
+            ->assertRedirect(route('admin.waitlist.index'));
+
+        $this->assertNull($nahradnik->fresh());
+        $this->assertSame(0, Guest::count());
+    }
+
+    public function test_zoznam_registracii_radi_hosti_v_ramci_rezervacie(): void
+    {
+        $this->actingAs($this->admin());
+        $this->reservation([['name' => 'Aa Prvý'], ['name' => 'Ab Druhý']]);
+        $this->reservation([['name' => 'Ba Prvý'], ['name' => 'Bb Druhý'], ['name' => 'Bc Tretí']]);
+
+        $mena = collect($this->get(route('admin.registrations.index'))->viewData('page')['props']['guests']['data'])->pluck('name');
+
+        $this->assertSame(['Ba Prvý', 'Bb Druhý', 'Bc Tretí', 'Aa Prvý', 'Ab Druhý'], $mena->all());
+    }
 }

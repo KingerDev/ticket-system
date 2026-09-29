@@ -31,7 +31,7 @@ const showingNavigationDropdown = ref(false);
 
                             <!-- Navigation Links -->
                             <div
-                                class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex"
+                                class="hidden space-x-6 xl:space-x-8 lg:-my-px lg:ms-8 lg:flex"
                             >
                                 <NavLink
                                     :href="route('dashboard')"
@@ -80,7 +80,7 @@ const showingNavigationDropdown = ref(false);
                             </div>
                         </div>
 
-                        <div class="hidden sm:ms-6 sm:flex sm:items-center">
+                        <div class="hidden lg:ms-6 lg:flex lg:items-center">
                             <!-- Settings Dropdown -->
                             <div class="relative ms-3">
                                 <Dropdown align="right" width="48">
@@ -127,7 +127,7 @@ const showingNavigationDropdown = ref(false);
                         </div>
 
                         <!-- Hamburger -->
-                        <div class="-me-2 flex items-center sm:hidden">
+                        <div class="-me-2 flex items-center lg:hidden">
                             <button
                                 @click="
                                     showingNavigationDropdown =
@@ -175,7 +175,7 @@ const showingNavigationDropdown = ref(false);
                         block: showingNavigationDropdown,
                         hidden: !showingNavigationDropdown,
                     }"
-                    class="sm:hidden"
+                    class="lg:hidden"
                 >
                     <div class="space-y-1 pb-3 pt-2">
                         <ResponsiveNavLink
@@ -185,10 +185,28 @@ const showingNavigationDropdown = ref(false);
                             Prehľad
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
+                            :href="route('admin.seating')"
+                            :active="route().current('admin.seating') || route().current('admin.seating.lookup')"
+                        >
+                            Usádzač
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('admin.reminders.index')"
+                            :active="route().current('admin.reminders.index')"
+                        >
+                            Pripomienky
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
                             :href="route('admin.waitlist.index')"
                             :active="route().current('admin.waitlist.index')"
                         >
                             Náhradníci
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('admin.export')"
+                            :active="route().current('admin.export')"
+                        >
+                            Export
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             v-if="$page.props.auth.user.is_super_admin"

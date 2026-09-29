@@ -10,6 +10,7 @@ use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\Registration;
 use App\Rules\DeliverableEmail;
+use App\Support\Capacity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Carbon;
@@ -192,12 +193,27 @@ class ReminderController extends Controller
             return back()->with('error', "Hosť {$guest->name} nie je stornovaný.");
         }
 
-        $guest->update([
-            'cancelled_at'        => null,
-            'payment_deadline_at' => null,
-            'reminder_sent_at'    => null,
-            'final_notice_sent_at' => null,
-        ]);
+        // Obnovený hosť (mimo náhradníkov) znova zaberá miesto – v plnej sále by ju preplnil.
+        $plna = DB::transaction(function () use ($guest) {
+            Capacity::lock();
+
+            if (! $guest->registration?->isWaitlisted() && Capacity::free() === 0) {
+                return true;
+            }
+
+            $guest->update([
+                'cancelled_at'        => null,
+                'payment_deadline_at' => null,
+                'reminder_sent_at'    => null,
+                'final_notice_sent_at' => null,
+            ]);
+
+            return false;
+        });
+
+        if ($plna) {
+            return back()->with('error', "Hosťa {$guest->name} nemožno obnoviť – sála je plná. Najprv uvoľnite miesto (napr. zrušte rezerváciu stoličky).");
+        }
 
         ActivityLog::record(
             'guest.restored',

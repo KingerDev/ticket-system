@@ -224,12 +224,16 @@ const confirmDeleteRegistration = () => {
 // Náhradníci nemajú miesto – kým ich organizátori nepresunú, nedá sa im nič prideliť.
 const isWaitlisted = computed(() => !!props.registration.waitlisted_at);
 const promoting = ref(false);
+const showPromoteModal = ref(false);
 
 const promote = () => {
     promoting.value = true;
     router.post(route('admin.waitlist.promote', props.registration.id), {}, {
         preserveScroll: true,
-        onFinish: () => { promoting.value = false; },
+        onFinish: () => {
+            promoting.value = false;
+            showPromoteModal.value = false;
+        },
     });
 };
 
@@ -309,11 +313,10 @@ const closeTicketModal = () => {
                         </p>
                     </div>
                     <button
-                        @click="promote"
-                        :disabled="promoting"
-                        class="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold disabled:opacity-50"
+                        @click="showPromoteModal = true"
+                        class="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
                     >
-                        {{ promoting ? 'Presúvam…' : 'Presunúť medzi riadne' }}
+                        Presunúť medzi riadne
                     </button>
                 </div>
 
@@ -593,6 +596,28 @@ const closeTicketModal = () => {
                     </PrimaryButton>
                 </div>
             </form>
+        </Modal>
+
+        <!-- Potvrdenie presunu z náhradníkov – hneď odchádza e-mail -->
+        <Modal :show="showPromoteModal" @close="showPromoteModal = false" maxWidth="md">
+            <div class="p-6">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Presunúť medzi riadne</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    Rezervácia <strong class="text-gray-900 dark:text-gray-100">{{ registration.reservation_number }}</strong>
+                    dostane miesto a na <strong class="text-gray-900 dark:text-gray-100">{{ registration.registrant_email }}</strong>
+                    hneď odíde e-mail, že môžu prísť zaplatiť.
+                </p>
+                <div class="flex justify-end space-x-3">
+                    <button @click="showPromoteModal = false"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        Zrušiť
+                    </button>
+                    <button @click="promote" :disabled="promoting"
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-semibold disabled:opacity-50">
+                        {{ promoting ? 'Presúvam…' : 'Presunúť a poslať e-mail' }}
+                    </button>
+                </div>
+            </div>
         </Modal>
 
         <!-- Potvrdenie zmazania celej rezervácie -->

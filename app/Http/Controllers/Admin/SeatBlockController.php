@@ -7,7 +7,9 @@ use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\SeatBlock;
 use App\Models\Table;
+use App\Support\Capacity;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Stoličky, ktoré si organizátori rezervujú vopred (napr. pre učiteľov).
@@ -25,6 +27,16 @@ class SeatBlockController extends Controller
             'label'       => 'nullable|string|max:255',
         ]);
 
+        return DB::transaction(function () use ($request, $validated) {
+            // Zámok, aby súbežná registrácia nezobrala to isté posledné miesto.
+            Capacity::lock();
+
+            return $this->block($request, $validated);
+        });
+    }
+
+    private function block(Request $request, array $validated)
+    {
         $table = Table::findOrFail($validated['table_id']);
 
         if ($validated['seat_number'] > $table->capacity) {
@@ -38,6 +50,12 @@ class SeatBlockController extends Controller
 
         if (SeatBlock::where('table_id', $table->id)->where('seat_number', $validated['seat_number'])->exists()) {
             return back()->with('error', "Miesto {$validated['seat_number']} pri stole {$table->name} je už rezervované.");
+        }
+
+        // Voľná stolička na mape ešte neznamená voľné miesto – hostia bez
+        // prideleného miesta ho už môžu mať „zarezervované“ v počte.
+        if (Capacity::free() === 0) {
+            return back()->with('error', 'Sála je plná – všetky miesta majú hostia alebo rezervácie. Ďalšia rezervácia by sálu preplnila. Najprv uvoľnite miesto (storno, zrušená rezervácia) alebo zväčšite sálu.');
         }
 
         $block = SeatBlock::create([

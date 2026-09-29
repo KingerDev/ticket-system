@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import Modal from '@/Components/Modal.vue';
 
 const props = defineProps({
     waitlist: Array,
@@ -9,14 +10,20 @@ const props = defineProps({
     capacity: Object,
 });
 
-const promotingId = ref(null);
+// Obe akcie idú cez potvrdenie: presun hneď posiela e-mail, zmazanie je nevratné.
+const confirming = ref(null); // { action: 'promote' | 'delete', registracia }
+const processing = ref(false);
 
-const promote = (registracia) => {
-    promotingId.value = registracia.id;
-    router.post(route('admin.waitlist.promote', registracia.id), {}, {
-        preserveScroll: true,
-        onFinish: () => { promotingId.value = null; },
-    });
+const confirmAction = () => {
+    const { action, registracia } = confirming.value;
+    const done = { preserveScroll: true, onFinish: () => { processing.value = false; confirming.value = null; } };
+    processing.value = true;
+
+    if (action === 'promote') {
+        router.post(route('admin.waitlist.promote', registracia.id), {}, done);
+    } else {
+        router.delete(route('admin.registrations.destroy', registracia.id), { ...done, data: { stay: true } });
+    }
 };
 
 const fits = (registracia) => props.capacity.free === null || registracia.guest_count <= props.capacity.free;
@@ -89,13 +96,21 @@ const hostiLabel = (n) => (n === 1 ? '1 hosť' : n < 5 ? `${n} hostia` : `${n} h
                             </div>
 
                             <div class="flex flex-col items-end gap-1">
-                                <button
-                                    @click="promote(r)"
-                                    :disabled="!fits(r) || promotingId === r.id"
-                                    class="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    {{ promotingId === r.id ? 'Presúvam…' : 'Presunúť medzi riadne' }}
-                                </button>
+                                <div class="flex flex-wrap justify-end gap-2">
+                                    <button
+                                        @click="confirming = { action: 'delete', registracia: r }"
+                                        class="px-3 py-2 border border-red-200 dark:border-red-900/50 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 bg-white dark:bg-gray-800"
+                                    >
+                                        Zmazať
+                                    </button>
+                                    <button
+                                        @click="confirming = { action: 'promote', registracia: r }"
+                                        :disabled="!fits(r)"
+                                        class="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        Presunúť medzi riadne
+                                    </button>
+                                </div>
                                 <span v-if="!fits(r)" class="text-xs text-gray-500 dark:text-gray-400">
                                     Nie je dosť voľných miest ({{ capacity.free }}).
                                 </span>
@@ -109,5 +124,38 @@ const hostiLabel = (n) => (n === 1 ? '1 hosť' : n < 5 ? `${n} hostia` : `${n} h
                 </div>
             </div>
         </div>
+        <Modal :show="!!confirming" @close="confirming = null" maxWidth="md">
+            <div v-if="confirming" class="p-6">
+                <template v-if="confirming.action === 'promote'">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Presunúť medzi riadne</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mb-6">
+                        Rezervácia <strong class="text-gray-900 dark:text-gray-100">{{ confirming.registracia.reservation_number }}</strong>
+                        ({{ hostiLabel(confirming.registracia.guest_count) }}) dostane miesto a na
+                        <strong class="text-gray-900 dark:text-gray-100">{{ confirming.registracia.registrant_email }}</strong>
+                        hneď odíde e-mail, že môžu prísť zaplatiť.
+                    </p>
+                </template>
+                <template v-else>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Zmazať náhradníka</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mb-6">
+                        Zmaže sa celá rezervácia <strong class="text-gray-900 dark:text-gray-100">{{ confirming.registracia.reservation_number }}</strong>
+                        so všetkými hosťami ({{ confirming.registracia.guests.join(', ') }}). Je to nevratné a žiadny e-mail sa neposiela.
+                    </p>
+                </template>
+
+                <div class="flex justify-end space-x-3">
+                    <button @click="confirming = null"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        Zrušiť
+                    </button>
+                    <button @click="confirmAction" :disabled="processing"
+                        class="px-4 py-2 text-white rounded-md text-sm font-semibold disabled:opacity-50"
+                        :class="confirming.action === 'promote' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'">
+                        <template v-if="processing">Pracujem…</template>
+                        <template v-else>{{ confirming.action === 'promote' ? 'Presunúť a poslať e-mail' : 'Zmazať rezerváciu' }}</template>
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AuthenticatedLayout>
 </template>
