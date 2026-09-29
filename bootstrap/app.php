@@ -11,7 +11,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-	$middleware->trustProxies(at: '*');
+        // Pred aplikáciou je Cloudflare a za ním reverzná proxy v Dockeri.
+        // Dôverujeme priamemu susedovi, privátnym sieťam a Cloudflaru – inak
+        // by request()->ip() vracalo adresu Cloudflaru namiesto používateľa.
+        $middleware->trustProxies(at: [
+            'REMOTE_ADDR',
+            'PRIVATE_SUBNETS',
+            ...\App\Support\Cloudflare::IP_RANGES,
+        ]);
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,

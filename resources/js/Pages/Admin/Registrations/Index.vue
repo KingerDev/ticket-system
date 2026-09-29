@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import TextInput from '@/Components/TextInput.vue';
+import PaidToggleModal from '@/Components/PaidToggleModal.vue';
 
 const props = defineProps({
     guests: Object,
@@ -23,9 +24,7 @@ watch(search, (value) => {
     }, 300);
 });
 
-const togglePaid = (guest) => {
-    router.post(route('admin.guests.toggle_paid', guest.id), {}, { preserveScroll: true });
-};
+const paidGuest = ref(null);
 </script>
 
 <template>
@@ -41,13 +40,13 @@ const togglePaid = (guest) => {
 
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg border border-gray-100 dark:border-gray-700">
 
-                    <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800">
-                        <div class="w-1/3">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-3 justify-between items-center bg-gray-50/50 dark:bg-gray-800">
+                        <div class="w-full sm:w-80">
                             <TextInput
                                 v-model="search"
                                 type="text"
                                 class="w-full"
-                                placeholder="Hľadať podľa mena, rezervácie..."
+                                placeholder="Hľadať podľa mena, e-mailu, rezervácie, lístka…"
                             />
                         </div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">
@@ -59,20 +58,20 @@ const togglePaid = (guest) => {
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-900/50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Meno hosťa</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rezervácia</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Miesto</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Platba</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Lístok</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Akcia</th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Meno hosťa</th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rezervácia</th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Miesto</th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Platba</th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Lístok</th>
+                                    <th class="px-3 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Akcia</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="guest in guests.data" :key="guest.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
 
                                     <!-- Meno -->
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center gap-2">
+                                    <td class="px-3 lg:px-6 py-4">
+                                        <div class="flex flex-wrap items-center gap-2">
                                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ guest.name }}
                                     <span v-if="guest.cancelled_at" class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Stornovaný</span></span>
                                             <span v-if="guest.is_teacher" class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">Učiteľ</span>
@@ -80,21 +79,21 @@ const togglePaid = (guest) => {
                                     </td>
 
                                     <!-- Rezervácia -->
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-3 lg:px-6 py-4">
                                         <div class="text-sm font-bold text-gray-900 dark:text-gray-100">{{ guest.registration?.reservation_number }}</div>
                                         <div class="text-xs text-gray-400">{{ guest.registration?.registrant_name }}</div>
                                     </td>
 
                                     <!-- Miesto -->
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                                         <span v-if="guest.table">{{ guest.table.name }} / {{ guest.seat_number }}</span>
                                         <span v-else class="text-gray-400">—</span>
                                     </td>
 
                                     <!-- Platba -->
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap">
                                         <button
-                                            @click="togglePaid(guest)"
+                                            @click="paidGuest = guest"
                                             class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-colors cursor-pointer"
                                             :class="guest.paid
                                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200'
@@ -105,9 +104,9 @@ const togglePaid = (guest) => {
                                     </td>
 
                                     <!-- Lístok -->
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap">
                                         <span v-if="guest.ticket_issued" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                            Vydaný
+                                            Vydaný<template v-if="guest.ticket_code">&nbsp;·&nbsp;<span class="font-mono">{{ guest.ticket_code }}</span></template>
                                         </span>
                                         <span v-else class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
                                             Čaká
@@ -115,7 +114,7 @@ const togglePaid = (guest) => {
                                     </td>
 
                                     <!-- Akcia -->
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <Link :href="route('admin.registrations.show', guest.registration?.id)" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
                                             Detail &rarr;
                                         </Link>
@@ -132,11 +131,11 @@ const togglePaid = (guest) => {
                     </div>
 
                     <!-- Pagination -->
-                    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between">
+                    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex flex-wrap gap-3 items-center justify-between">
                         <p class="text-sm text-gray-700 dark:text-gray-300">
                             Zobrazuje sa <span class="font-medium">{{ guests.from || 0 }}</span> do <span class="font-medium">{{ guests.to || 0 }}</span> z <span class="font-medium">{{ guests.total }}</span>
                         </p>
-                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        <nav class="relative z-0 inline-flex flex-wrap rounded-md shadow-sm -space-x-px">
                             <Link v-for="(link, i) in guests.links" :key="i" :href="link.url || '#'" v-html="link.label"
                                 :class="[
                                     link.active ? 'z-10 bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700',
@@ -149,5 +148,6 @@ const togglePaid = (guest) => {
 
             </div>
         </div>
+        <PaidToggleModal :guest="paidGuest" @close="paidGuest = null" />
     </AuthenticatedLayout>
 </template>

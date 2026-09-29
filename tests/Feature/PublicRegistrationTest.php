@@ -44,7 +44,7 @@ class PublicRegistrationTest extends TestCase
         $response = $this->post(route('register.store'), [
             'guests' => [
                 $this->guest(),
-                $this->guest(['name' => 'Peter Malý', 'email' => '', 'allergen_ids' => [], 'is_vegan' => true]),
+                $this->guest(['name' => 'Peter Malý', 'email' => '', 'allergen_ids' => [], 'is_vegan' => true, 'is_vegetarian' => false]),
             ],
         ]);
 
@@ -170,5 +170,127 @@ class PublicRegistrationTest extends TestCase
             Registration::distinct('reservation_number')->count('reservation_number'),
             'čísla rezervácií sa nesmú opakovať'
         );
+    }
+
+    /** @dataProvider neuplneEmaily */
+    public function test_email_bez_domeny_neprejde(string $email): void
+    {
+        $this->post(route('register.store'), ['guests' => [$this->guest(['email' => $email])]])
+            ->assertSessionHasErrors('guests.0.email');
+
+        $this->assertSame(0, Registration::count());
+    }
+
+    public static function neuplneEmaily(): array
+    {
+        return [
+            'bez koncovky' => ['jana@gmail'],
+            'bez domény'   => ['x@y'],
+            'krátka koncovka' => ['jana@email.s'],
+        ];
+    }
+
+    public function test_email_kontaktnej_osoby_je_povinny(): void
+    {
+        $this->post(route('register.store'), ['guests' => [$this->guest(['email' => ''])]])
+            ->assertSessionHasErrors('guests.0.email');
+
+        $this->assertSame(0, Registration::count());
+    }
+
+    public function test_hostia_s_emailom_dostanu_vlastne_potvrdenie(): void
+    {
+        Mail::fake();
+
+        $this->post(route('register.store'), [
+            'guests' => [
+                $this->guest(),
+                $this->guest(['name' => 'Peter Malý', 'email' => 'peter@email.sk']),
+                $this->guest(['name' => 'Eva Krátka', 'email' => '']),
+                // Rovnaká adresa ako kontaktná osoba – druhý e-mail by bol zbytočný.
+                $this->guest(['name' => 'Ján Nový', 'email' => 'JANA@email.sk']),
+            ],
+        ])->assertSessionHasNoErrors();
+
+        Mail::assertQueuedCount(2);
+        Mail::assertQueued(RegistrationConfirmation::class, fn ($mail) => $mail->hasTo('jana@email.sk') && $mail->recipient === null);
+        Mail::assertQueued(RegistrationConfirmation::class, fn ($mail) => $mail->hasTo('peter@email.sk') && $mail->recipient?->name === 'Peter Malý');
+    }
+
+    public function test_potvrdenie_hosta_neobsahuje_udaje_ostatnych(): void
+    {
+        Mail::fake();
+
+        $this->post(route('register.store'), [
+            'guests' => [
+                $this->guest(['allergen_note' => 'tajná alergia']),
+                $this->guest(['name' => 'Peter Malý', 'email' => 'peter@email.sk', 'allergen_note' => '']),
+            ],
+        ]);
+
+        $registration = Registration::first();
+        $peter = $registration->guests->firstWhere('name', 'Peter Malý');
+        $html = (new RegistrationConfirmation($registration, $peter))->render();
+
+        $this->assertStringContainsString('Peter Malý', $html);
+        $this->assertStringContainsString('PLES-0001', $html);
+        $this->assertStringNotContainsString('tajná alergia', $html);
+    }
+
+    public function test_vegan_a_vegetarian_naraz_neprejde(): void
+    {
+        $this->post(route('register.store'), ['guests' => [$this->guest(['is_vegan' => true, 'is_vegetarian' => true])]])
+            ->assertSessionHasErrors('guests.0.is_vegan');
+
+        $this->assertSame(0, Registration::count());
+    }
+
+    public function test_hlaska_pouziva_nazov_pola_z_formulara(): void
+    {
+        $this->app->setLocale('sk');
+
+        $this->post(route('register.store'), ['guests' => [$this->guest(['note' => str_repeat('x', 1001)])]]);
+
+        $this->assertStringContainsString('odkaz pre organizátorov', session('errors')->first('guests.0.note'));
+    }
+
+    public function test_alergeny_sa_ulozia_zoradene(): void
+    {
+        Mail::fake();
+
+        $this->post(route('register.store'), ['guests' => [$this->guest(['allergen_ids' => [14, 1, 7]])]]);
+
+        $this->assertSame([1, 7, 14], Guest::first()->allergen_ids);
+    }
+
+    public function test_email_ukaze_nazvy_alergenov_a_zalomenia_riadkov(): void
+    {
+        Mail::fake();
+
+        $this->post(route('register.store'), ['guests' => [$this->guest([
+            'allergen_ids' => [14, 1],
+            'note'         => "prvý riadok\ndruhý <b>riadok</b>",
+        ])]]);
+
+        $html = (new RegistrationConfirmation(Registration::first()))->render();
+
+        $this->assertStringContainsString('1. Obilniny s lepkom, 14. Mäkkýše', $html);
+        $this->assertStringContainsString("prvý riadok<br />\ndruhý &lt;b&gt;riadok&lt;/b&gt;", $html);
+    }
+
+    public function test_stranka_po_odoslani_ukaze_cislo_rezervacie(): void
+    {
+        Mail::fake();
+
+        $this->followingRedirects()
+            ->post(route('register.store'), ['guests' => [$this->guest()]])
+            ->assertInertia(fn ($page) => $page
+                ->component('Registration/Success')
+                ->where('reservation_number', 'PLES-0001'));
+    }
+
+    public function test_stranka_po_odoslani_funguje_aj_bez_cisla(): void
+    {
+        $this->get(route('register.success'))->assertOk();
     }
 }

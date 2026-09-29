@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\Guest;
 use App\Models\Registration;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,11 +19,18 @@ class RegistrationConfirmation extends Mailable implements ShouldQueue
     public $registration;
 
     /**
+     * Hosť, ktorému správa ide. Null = kontaktná osoba, ktorá dostane
+     * prehľad celej rezervácie; ostatní hostia vidia len svoje údaje.
+     */
+    public ?Guest $recipient;
+
+    /**
      * Create a new message instance.
      */
-    public function __construct(Registration $registration)
+    public function __construct(Registration $registration, ?Guest $recipient = null)
     {
         $this->registration = $registration->load('guests');
+        $this->recipient = $recipient;
     }
 
     /**
@@ -47,6 +55,11 @@ class RegistrationConfirmation extends Mailable implements ShouldQueue
     {
         return new Content(
             view: 'emails.registration-confirmation',
+            with: [
+                'guests' => $this->recipient
+                    ? collect([$this->recipient])
+                    : $this->registration->guests,
+            ],
         );
     }
 

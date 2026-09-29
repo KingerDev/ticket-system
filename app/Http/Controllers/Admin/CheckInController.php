@@ -34,6 +34,12 @@ class CheckInController extends Controller
             return back()->with('error', "Rezervácia hosťa {$guest->name} bola stornovaná. Lístok neplatí.");
         }
 
+        // Nezaplatený hosť dnu nesmie, aj keď má lístok (napr. platbu niekto
+        // omylom zrušil po vydaní lístka).
+        if (!$guest->paid && !$guest->checked_in) {
+            return back()->with('error', "Hosť {$guest->name} NEMÁ ZAPLATENÉ. Vstup nepovoľte – pošlite ho k organizátorom.");
+        }
+
         if ($guest->checked_in) {
             return back()
                 ->with('error', "Hosť {$guest->name} bol už skontrolovaný o " . $guest->checked_in_at->format('H:i') . "!")
@@ -67,6 +73,6 @@ class CheckInController extends Controller
             'allergens'  => $guest->allergens_display,
             'is_teacher' => $guest->is_teacher,
             'note'       => $guest->note,
-        ])->with('success', 'Úspešne naskenované a povolený vstup!');
+        ])->with('success', 'Lístok je platný, hosť má zaplatené.');
     }
 }

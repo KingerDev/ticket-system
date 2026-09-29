@@ -9,6 +9,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({
+    hasGuests: { type: Boolean, default: true },
     awaiting: Array,
     cancelled: Array,
     defaultDeadline: String,
@@ -47,11 +48,16 @@ const submitSend = () => {
 // --- storno ---
 const showCancelModal = ref(false);
 const stornovana = ref(null);
-const cancelForm = useForm({ notify: true });
+const cancelForm = useForm({ notify: true, confirm_checked_in: false });
+
+// Hostia, ktorí už majú lístok alebo sú vnútri – pri storne na nich treba upozorniť.
+const sListkom = computed(() => stornovana.value?.guests.filter(g => g.ticket_code && !g.checked_in) ?? []);
+const vnutri = computed(() => stornovana.value?.guests.filter(g => g.checked_in) ?? []);
 
 const openCancel = (registracia) => {
     stornovana.value = registracia;
-    cancelForm.notify = true;
+    cancelForm.notify = registracia.email_valid;
+    cancelForm.confirm_checked_in = false;
     showCancelModal.value = true;
 };
 
@@ -152,16 +158,21 @@ const zostava = (dni) => {
                                             Posledná výzva {{ r.final_notice_sent_at }}.
                                         </template>
                                         <span class="text-gray-400">{{ r.registrant_email }}</span>
+                                        <span v-if="!r.email_valid" class="ml-1 font-semibold text-red-600 dark:text-red-400">
+                                            — neplatný e-mail, opravte ho v detaile rezervácie
+                                        </span>
                                     </p>
                                 </div>
 
                                 <div class="flex flex-wrap gap-2 justify-end">
-                                    <button @click="openSend(r, false)"
-                                        class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800">
+                                    <button @click="openSend(r, false)" :disabled="!r.email_valid"
+                                        :title="r.email_valid ? '' : 'Najprv opravte kontaktný e-mail'"
+                                        class="disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800">
                                         {{ r.reminder_sent_at ? 'Poslať znova' : 'Poslať pripomienku' }}
                                     </button>
-                                    <button @click="openSend(r, true)"
-                                        class="px-3 py-1.5 border border-amber-300 dark:border-amber-800 rounded-md text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 bg-white dark:bg-gray-800">
+                                    <button @click="openSend(r, true)" :disabled="!r.email_valid"
+                                        :title="r.email_valid ? '' : 'Najprv opravte kontaktný e-mail'"
+                                        class="disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 border border-amber-300 dark:border-amber-800 rounded-md text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 bg-white dark:bg-gray-800">
                                         Posledná výzva
                                     </button>
                                     <button @click="openCancel(r)"
@@ -175,7 +186,8 @@ const zostava = (dni) => {
                 </div>
 
                 <div v-else class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-10 text-center text-gray-500 dark:text-gray-400">
-                    Všetci hostia majú zaplatené. Niet komu pripomínať.
+                    <template v-if="hasGuests">Všetci hostia majú zaplatené. Niet komu pripomínať.</template>
+                    <template v-else>Zatiaľ nie sú žiadne registrácie.</template>
                 </div>
 
                 <!-- Stornované -->
@@ -272,7 +284,27 @@ const zostava = (dni) => {
                     <li>Záznam sa nemaže — hosťa viete kedykoľvek obnoviť.</li>
                 </ul>
 
-                <label class="flex items-start gap-3 cursor-pointer mb-6">
+                <div v-if="sListkom.length" class="mb-4 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-300">
+                    Lístok už bol vydaný:
+                    <strong>{{ sListkom.map(g => `${g.name} (č. ${g.ticket_code})`).join(', ') }}</strong>.
+                    Po storne lístok prestane platiť.
+                </div>
+
+                <div v-if="vnutri.length" class="mb-4 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                    <p class="font-semibold">
+                        Pozor: {{ vnutri.map(g => g.name).join(', ') }}
+                        {{ vnutri.length === 1 ? 'už bol zapísaný' : 'už boli zapísaní' }} pri vstupe — sú na plese.
+                    </p>
+                    <label class="flex items-start gap-2 mt-2 cursor-pointer">
+                        <input type="checkbox" v-model="cancelForm.confirm_checked_in" class="mt-0.5 rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4" />
+                        <span>Rozumiem a chcem ich napriek tomu stornovať.</span>
+                    </label>
+                </div>
+
+                <p v-if="!stornovana.email_valid" class="mb-6 text-sm text-red-600 dark:text-red-400">
+                    E-mail o storne sa nepošle — kontaktná adresa {{ stornovana.registrant_email }} je neplatná.
+                </p>
+                <label v-else class="flex items-start gap-3 cursor-pointer mb-6">
                     <input type="checkbox" v-model="cancelForm.notify" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
                     <span class="text-sm text-gray-700 dark:text-gray-300">
                         Poslať hosťovi e-mail o storne
@@ -285,7 +317,7 @@ const zostava = (dni) => {
                         class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                         Zrušiť
                     </button>
-                    <button @click="submitCancel" :disabled="cancelForm.processing"
+                    <button @click="submitCancel" :disabled="cancelForm.processing || (vnutri.length > 0 && !cancelForm.confirm_checked_in)"
                         class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-semibold disabled:opacity-50">
                         {{ cancelForm.processing ? 'Stornujem…' : 'Stornovať' }}
                     </button>

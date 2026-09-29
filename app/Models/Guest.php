@@ -27,6 +27,17 @@ class Guest extends Model
         'cancelled_at'         => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // Alergény vždy zoradené, nech sa v e-mailoch a prehľadoch nezobrazujú
+        // v poradí, v akom sa klikali („5, 2“).
+        static::saving(function (Guest $guest) {
+            if ($guest->isDirty('allergen_ids')) {
+                $guest->allergen_ids = self::normalizeAllergenIds($guest->allergen_ids);
+            }
+        });
+    }
+
     /** Hostia, ktorí sa plesu reálne zúčastnia – bez stornovaných. */
     public function scopeActive($query)
     {
@@ -79,6 +90,9 @@ class Guest extends Model
      */
     public const FULL_NAME_REGEX = "regex:/^\\p{L}[\\p{L}\\p{M}'\\-.]*(\\s+\\p{L}[\\p{L}\\p{M}'\\-.]*)+$/u";
 
+    /** Maximálna dĺžka poznámok – rovnaká vo formulári aj na serveri. */
+    public const NOTE_MAX_LENGTH = 1000;
+
     // EU allergens per Slovak norms
     public const ALLERGENS = [
         1  => 'Obilniny s lepkom',
@@ -97,17 +111,45 @@ class Guest extends Model
         14 => 'Mäkkýše',
     ];
 
+    /** Čísla alergénov zoradené a bez duplicít – nezávisle od poradia klikania. */
+    public static function normalizeAllergenIds(?array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids ?? [])));
+        sort($ids);
+
+        return $ids;
+    }
+
     // Compact summary for display (numbers + dietary labels + note)
     public function getAllergensDisplayAttribute(): string
     {
         $parts = [];
         if (!empty($this->allergen_ids)) {
-            $parts[] = implode(', ', $this->allergen_ids);
+            $parts[] = implode(', ', self::normalizeAllergenIds($this->allergen_ids));
         }
         if ($this->is_vegan)       $parts[] = 'Vegán';
         if ($this->is_vegetarian)  $parts[] = 'Vegetarián';
         if ($this->allergen_note)  $parts[] = $this->allergen_note;
         return implode(' | ', $parts);
+    }
+
+    /** Alergény s názvami pre hostí, napr. „1. Obilniny s lepkom, 7. Mlieko“. */
+    public function getAllergenNamesAttribute(): string
+    {
+        return collect(self::normalizeAllergenIds($this->allergen_ids))
+            ->filter(fn (int $id) => isset(self::ALLERGENS[$id]))
+            ->map(fn (int $id) => $id . '. ' . self::ALLERGENS[$id])
+            ->implode(', ');
+    }
+
+    /** Špeciálna strava slovom, alebo null. */
+    public function getDietLabelAttribute(): ?string
+    {
+        return match (true) {
+            (bool) $this->is_vegan      => 'vegánska',
+            (bool) $this->is_vegetarian => 'vegetariánska',
+            default                     => null,
+        };
     }
 
     /** Zoznam alergénov pre frontend: [{ id, name }, ...]. */

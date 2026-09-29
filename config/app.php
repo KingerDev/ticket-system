@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Slovenský čas – inak by sa časy check-inu, storna a záznamu činnosti
+    // zobrazovali posunuté o 1–2 hodiny.
+    'timezone' => env('APP_TIMEZONE', 'Europe/Bratislava'),
 
     /*
     |--------------------------------------------------------------------------

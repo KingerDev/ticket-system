@@ -31,7 +31,14 @@
             </div>
         @endif
 
-        <p>Ak ste medzitým zaplatili alebo potrebujete termín posunúť, ozvite sa nám odpoveďou na túto správu — radi to vyriešime.</p>
+        @include('emails.partials.payment')
+
+        <p>
+            @include('emails.partials.reply', [
+                'withReply'    => 'Ak ste medzitým zaplatili alebo potrebujete termín posunúť, ozvite sa nám odpoveďou na túto správu — radi to vyriešime.',
+                'withoutReply' => 'Ak ste medzitým zaplatili alebo potrebujete termín posunúť, ozvite sa organizátorom — radi to vyriešime.',
+            ])
+        </p>
 
         <p style="margin-top: 28px;">Organizátori Beánií EF UMB</p>
     </div>

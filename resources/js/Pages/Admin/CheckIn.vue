@@ -89,7 +89,7 @@ onMounted(() => {
                         </div>
 
                         <div class="relative z-10">
-                            <h3 class="text-3xl font-black text-green-700 dark:text-green-400 mb-2">Povolte Výstup!</h3>
+                            <h3 class="text-3xl font-black text-green-700 dark:text-green-400 mb-2">Povoľte vstup!</h3>
                             <p class="text-green-600 dark:text-green-300 font-medium text-lg mb-6">{{ page.props.flash.success }}</p>
                             
                             <div v-if="page.props.flash.success_guest" class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow border border-green-100 dark:border-green-800 inline-block text-left min-w-[300px]">

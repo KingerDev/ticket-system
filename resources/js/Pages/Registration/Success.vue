@@ -2,10 +2,15 @@
 import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
+    // Po obnovení stránky už číslo v session nie je – stránka musí fungovať aj bez neho.
     reservation_number: {
         type: String,
-        required: true,
-    }
+        default: null,
+    },
+    paymentInfo: {
+        type: String,
+        default: null,
+    },
 });
 </script>
 
@@ -36,6 +41,13 @@ defineProps({
                 Vaša registrácia na <strong class="text-gray-900 dark:text-gray-200">Beánie EF UMB 2026</strong> bola úspešne prijatá.
             </p>
 
+            <div v-if="reservation_number" class="relative z-10 mb-8">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Číslo vašej rezervácie</p>
+                <p class="text-3xl font-mono font-bold tracking-wider text-gray-900 dark:text-white select-all">
+                    {{ reservation_number }}
+                </p>
+            </div>
+
             <div class="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-6 sm:p-8 border border-gray-100 dark:border-gray-700 mb-8 max-w-md mx-auto text-left shadow-sm">
                 <h3 class="font-semibold text-gray-900 dark:text-white text-lg mb-4 flex items-center">
                     <svg class="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -48,7 +60,18 @@ defineProps({
                             <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
                         </div>
                         <p class="ml-3 text-sm text-gray-600 dark:text-gray-400">
-                            Lístky Vám budú doručené až po uhradení platby a výbere stola.
+                            Potvrdenie s číslom rezervácie sme poslali na e-mail kontaktnej osoby.
+                        </p>
+                    </li>
+                    <li class="flex items-start">
+                        <div class="flex-shrink-0 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                        </div>
+                        <p class="ml-3 text-sm text-gray-600 dark:text-gray-400">
+                            Platí sa <strong>len v hotovosti, osobne u organizátorov</strong>.
+                            <template v-if="paymentInfo">Nájdete nás: {{ paymentInfo }}.</template>
+                            <template v-else>Termíny a miesto, kde nás nájdete, včas zverejníme.</template>
+                            Po úhrade vám pridelíme miesta pri stole a vydáme lístky.
                         </p>
                     </li>
                 </ul>

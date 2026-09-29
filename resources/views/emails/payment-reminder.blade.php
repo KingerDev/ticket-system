@@ -32,7 +32,14 @@
             </div>
         @endif
 
-        <p>Ak ste už zaplatili a tento e-mail vám prišiel omylom, dajte nám vedieť odpoveďou na túto správu.</p>
+        @include('emails.partials.payment')
+
+        <p>
+            @include('emails.partials.reply', [
+                'withReply'    => 'Ak ste už zaplatili a tento e-mail vám prišiel omylom, dajte nám vedieť odpoveďou na túto správu.',
+                'withoutReply' => 'Ak ste už zaplatili a tento e-mail vám prišiel omylom, dajte nám vedieť pri najbližšom stretnutí s organizátormi.',
+            ])
+        </p>
 
         <p style="margin-top: 28px;">Tešíme sa na vás,<br>organizátori Beánií EF UMB</p>
     </div>

@@ -9,7 +9,9 @@ use App\Mail\ReservationCancelled;
 use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\Registration;
+use App\Rules\DeliverableEmail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -48,6 +50,8 @@ class ReminderController extends Controller
             ->values();
 
         return Inertia::render('Admin/Reminders/Index', [
+            // Bez hostí nemá zmysel hlásiť „všetci majú zaplatené“.
+            'hasGuests' => Guest::exists(),
             'awaiting'  => $awaiting,
             'cancelled' => $cancelled,
             // Predvyplní sa posledný použitý termín, nech sa nemusí písať stále dokola.
@@ -79,6 +83,12 @@ class ReminderController extends Controller
 
         if ($guests->isEmpty()) {
             return back()->with('error', "Rezervácia {$registration->reservation_number} nemá nezaplatených hostí.");
+        }
+
+        // Na neplatnú adresu (napr. staršia rezervácia s „…@gmail“) by e-mail
+        // nikdy neprišiel, hoci by sa hlásil ako odoslaný.
+        if (! $this->maPlatnyEmail($registration)) {
+            return back()->with('error', "Kontaktný e-mail {$registration->reservation_number} ({$registration->registrant_email}) je neplatný. Opravte ho v detaile rezervácie a pošlite e-mail znova.");
         }
 
         $deadline = Carbon::parse($validated['deadline'])->endOfDay();
@@ -115,7 +125,7 @@ class ReminderController extends Controller
 
         $co = $finalNotice ? 'Posledná výzva' : 'Pripomienka';
 
-        return back()->with('success', "{$co} pre {$registration->reservation_number} bola odoslaná na {$registration->registrant_email}.");
+        return back()->with('success', "{$co} pre {$registration->reservation_number} bola zaradená na odoslanie na {$registration->registrant_email}.");
     }
 
     /** Storno nezaplatených hostí rezervácie. Miesta sa uvoľnia, záznam zostáva. */
@@ -126,6 +136,15 @@ class ReminderController extends Controller
 
         if ($guests->isEmpty()) {
             return back()->with('error', "Rezervácia {$registration->reservation_number} nemá čo stornovať.");
+        }
+
+        // Hosť, ktorý je už vnútri, sa nestornuje omylom – obsluha to musí výslovne potvrdiť.
+        $vnutri = $guests->where('checked_in', true);
+        if ($vnutri->isNotEmpty() && ! $request->boolean('confirm_checked_in')) {
+            return back()->with('error', sprintf(
+                'Hosť %s už bol zapísaný pri vstupe. Storno treba výslovne potvrdiť.',
+                $vnutri->pluck('name')->join(', ', ' a '),
+            ));
         }
 
         DB::transaction(function () use ($guests) {
@@ -140,8 +159,13 @@ class ReminderController extends Controller
             }
         });
 
+        $upozornenie = '';
         if ($request->boolean('notify', true)) {
-            Mail::to($registration->registrant_email)->queue(new ReservationCancelled($registration, $guests));
+            if ($this->maPlatnyEmail($registration)) {
+                Mail::to($registration->registrant_email)->queue(new ReservationCancelled($registration, $guests));
+            } else {
+                $upozornenie = " E-mail o storne sa neposlal – kontaktná adresa {$registration->registrant_email} je neplatná.";
+            }
         }
 
         ActivityLog::record(
@@ -156,7 +180,7 @@ class ReminderController extends Controller
             ['hostia' => $guests->pluck('name')->all()],
         );
 
-        return back()->with('success', "Rezervácia {$registration->reservation_number} bola stornovaná, miesta sú voľné.");
+        return back()->with('success', "Rezervácia {$registration->reservation_number} bola stornovaná, miesta sú voľné.{$upozornenie}");
     }
 
     /** Obnovenie stornovaného hosťa – miesto treba prideliť znova. */
@@ -194,7 +218,13 @@ class ReminderController extends Controller
             'reservation_number' => $registration->reservation_number,
             'registrant_name'    => $registration->registrant_name,
             'registrant_email'   => $registration->registrant_email,
-            'guests'             => $guests->map(fn (Guest $g) => ['id' => $g->id, 'name' => $g->name])->values(),
+            'guests'             => $guests->map(fn (Guest $g) => [
+                'id'          => $g->id,
+                'name'        => $g->name,
+                'ticket_code' => $g->ticket_issued ? $g->ticket_code : null,
+                'checked_in'  => (bool) $g->checked_in,
+            ])->values(),
+            'email_valid'        => $this->maPlatnyEmail($registration),
             'unpaid_count'       => $guests->count(),
             'deadline_at'        => $deadline?->format('Y-m-d'),
             'deadline_label'     => $deadline?->format('j. n. Y'),
@@ -203,6 +233,14 @@ class ReminderController extends Controller
             'final_notice_sent_at' => $guests->max('final_notice_sent_at')?->format('j. n. Y'),
             'stav'               => $this->stav($guests, $deadline),
         ];
+    }
+
+    private function maPlatnyEmail(Registration $registration): bool
+    {
+        return Validator::make(
+            ['email' => $registration->registrant_email],
+            ['email' => ['required', new DeliverableEmail]],
+        )->passes();
     }
 
     private function stav($guests, ?Carbon $deadline): string

@@ -10,9 +10,18 @@
 
         <p>Dobrý deň, {{ $registration->registrant_name }},</p>
 
+        {{-- Dôvod musí sedieť so skutočnosťou – nie každá rezervácia dostala výzvu. --}}
         <p>
-            keďže úhrada nedorazila ani po opakovanej výzve, museli sme vašu rezerváciu na
-            Beánie EF UMB 2026 stornovať a miesta uvoľniť ďalším záujemcom.
+            @if($guests->contains(fn ($g) => $g->final_notice_sent_at))
+                keďže úhrada nedorazila ani po opakovanej výzve, museli sme vašu rezerváciu na
+                Beánie EF UMB 2026 stornovať a miesta uvoľniť ďalším záujemcom.
+            @elseif($guests->contains(fn ($g) => $g->reminder_sent_at))
+                keďže úhrada nedorazila ani po pripomienke, museli sme vašu rezerváciu na
+                Beánie EF UMB 2026 stornovať a miesta uvoľniť ďalším záujemcom.
+            @else
+                vašu rezerváciu na Beánie EF UMB 2026 sme stornovali, pretože nebola uhradená.
+                Miesta sme uvoľnili ďalším záujemcom.
+            @endif
         </p>
 
         <h3 style="margin-bottom: 8px;">Stornované miesta:</h3>
@@ -24,7 +33,11 @@
 
         <div style="background: #f7fafc; border-left: 4px solid #4a5568; padding: 12px 16px; margin: 20px 0;">
             <p style="margin: 0;">
-                Ak ide o omyl alebo ste platbu poslali v posledný deň, <strong>odpovedzte na tento e-mail</strong>.
+                @if(config('mail.reply_to.address'))
+                    Ak ide o omyl, <strong>odpovedzte na tento e-mail</strong>.
+                @else
+                    Ak ide o omyl, <strong>ozvite sa organizátorom</strong>.
+                @endif
                 Ak sú ešte voľné miesta, rezerváciu vieme obnoviť.
             </p>
         </div>

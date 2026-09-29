@@ -8,6 +8,7 @@ import Modal from '@/Components/Modal.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
+import PaidToggleModal from '@/Components/PaidToggleModal.vue';
 
 const props = defineProps({
     registration: Object,
@@ -23,9 +24,13 @@ const activeGuest = ref(null);
 // Currently selected seat on map
 const selectedSeat = ref(null);
 
+// Hláška pri kliknutí na obsadené miesto – namiesto alert(), ktorý zablokuje stránku.
+const seatWarning = ref('');
+
 const selectGuestForAssignment = (guest) => {
     activeGuestId.value = guest.id;
     activeGuest.value = guest;
+    seatWarning.value = '';
     if (guest.table_id && guest.seat_number) {
         selectedSeat.value = { tableId: guest.table_id, seatNum: guest.seat_number };
     } else {
@@ -39,6 +44,7 @@ const cancelAssignment = () => {
     activeGuestId.value = null;
     activeGuest.value = null;
     selectedSeat.value = null;
+    seatWarning.value = '';
 };
 
 const handleSeatSelected = ({ table, seatNum, guest }) => {
@@ -47,10 +53,11 @@ const handleSeatSelected = ({ table, seatNum, guest }) => {
     
     // Cannot select an occupied seat (unless it is exactly the seat this guest already has)
     if (guest && guest.id !== activeGuestId.value) {
-        alert('Toto miesto je už obsadené.');
+        seatWarning.value = `Miesto ${seatNum} pri stole ${table.name} je už obsadené (${guest.name}). Vyberte iné.`;
         return;
     }
 
+    seatWarning.value = '';
     selectedSeat.value = { tableId: table.id, seatNum: seatNum };
 };
 
@@ -179,9 +186,15 @@ const confirmIssueTicket = () => {
     });
 };
 
-const togglePaid = (guest) => {
-    router.post(route('admin.guests.toggle_paid', guest.id), {}, { preserveScroll: true });
-};
+const paidGuest = ref(null);
+
+const guestCountLabel = computed(() => {
+    const n = props.registration.guests.length;
+    if (n === 1) return 'Registrácia — 1 hosť';
+    return `Skupinová registrácia — ${n} ${n < 5 ? 'hostia' : 'hostí'}`;
+});
+
+const sortedAllergens = (ids) => [...(ids ?? [])].sort((a, b) => a - b).join(', ');
 
 const page = usePage();
 const showTicketModal = ref(false);
@@ -223,7 +236,7 @@ const closeTicketModal = () => {
                 <div class="bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <span class="font-semibold text-gray-900 dark:text-white text-base">{{ registration.reservation_number }}</span>
                     <span class="text-gray-400">·</span>
-                    <span>Skupinová registrácia — {{ registration.guests.length }} {{ registration.guests.length === 1 ? 'hosť' : registration.guests.length < 5 ? 'hostia' : 'hostí' }}</span>
+                    <span>{{ guestCountLabel }}</span>
                     <span class="text-gray-400">·</span>
                     <span>Kontakt: {{ registration.registrant_name }} &lt;{{ registration.registrant_email }}&gt;</span>
                     <button
@@ -260,22 +273,26 @@ const closeTicketModal = () => {
                                         <div v-if="guest.email">{{ guest.email }}</div>
                                         <div v-if="guest.allergen_ids?.length || guest.is_vegan || guest.is_vegetarian || guest.allergen_note" class="text-red-500 dark:text-red-400 font-medium">
                                             Alergény:
-                                            <span v-if="guest.allergen_ids?.length">{{ guest.allergen_ids.join(', ') }}</span>
+                                            <span v-if="guest.allergen_ids?.length">{{ sortedAllergens(guest.allergen_ids) }}</span>
                                             <span v-if="guest.is_vegan"> · Vegán</span>
                                             <span v-if="guest.is_vegetarian"> · Vegetarián</span>
                                             <span v-if="guest.allergen_note"> · {{ guest.allergen_note }}</span>
                                         </div>
                                         <div v-if="guest.note" class="text-gray-400 dark:text-gray-500 italic">Poznámka: {{ guest.note }}</div>
                                         <div v-if="!guest.paid && !guest.cancelled_at && guest.payment_deadline_at" class="text-amber-600 dark:text-amber-400">
-                                            Termín na úhradu: {{ new Date(guest.payment_deadline_at).toLocaleDateString('sk-SK') }}
+                                            Termín na úhradu: {{ new Date(guest.payment_deadline_at).toLocaleDateString('sk-SK', { timeZone: 'Europe/Bratislava' }) }}
                                         </div>
                                         <div v-if="guest.table_id">Stôl: {{ guest.table.name }}, Miesto: {{ guest.seat_number }}</div>
+                                        <div v-if="guest.ticket_issued && guest.ticket_code" class="text-gray-700 dark:text-gray-300">
+                                            Lístok č. <strong class="font-mono text-base tracking-wider select-all">{{ guest.ticket_code }}</strong>
+                                            <span v-if="guest.checked_in" class="ml-2 text-green-600 dark:text-green-400">· zapísaný pri vstupe</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap gap-2 justify-end">
                                     <button
                                         v-if="!guest.cancelled_at"
-                                        @click="togglePaid(guest)"
+                                        @click="paidGuest = guest"
                                         class="px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer"
                                         :class="guest.paid
                                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200'
@@ -312,12 +329,18 @@ const closeTicketModal = () => {
                                         Učiteľ
                                     </span>
                                     <PrimaryButton
-                                        v-if="!guest.cancelled_at && guest.table_id && !guest.ticket_issued"
+                                        v-if="!guest.cancelled_at && guest.table_id && !guest.ticket_issued && guest.paid"
                                         @click="openIssueModal(guest)"
                                         class="bg-blue-600 hover:bg-blue-700 text-white"
                                     >
                                         Vydať lístok
                                     </PrimaryButton>
+                                    <span
+                                        v-else-if="!guest.cancelled_at && guest.table_id && !guest.ticket_issued"
+                                        class="self-center text-xs text-gray-500 dark:text-gray-400"
+                                    >
+                                        Lístok až po úhrade
+                                    </span>
                                 </div>
                             </div>
                         </li>
@@ -331,6 +354,7 @@ const closeTicketModal = () => {
                         <div>
                             <span class="block text-sm text-blue-200">Vyberte voľné miesto na mape pre hosťa:</span>
                             <span class="text-xl font-bold">{{ activeGuest.name }}</span>
+                            <span v-if="seatWarning" role="alert" class="block mt-1 text-sm font-semibold text-amber-200">{{ seatWarning }}</span>
                         </div>
                         <div class="flex space-x-3">
                             <button @click="cancelAssignment" class="px-4 py-2 border border-blue-400 bg-blue-700 hover:bg-blue-800 rounded-md text-sm font-medium transition-colors">
@@ -362,7 +386,8 @@ const closeTicketModal = () => {
 
         <!-- Úprava údajov hosťa -->
         <Modal :show="showEditModal" @close="showEditModal = false" maxWidth="2xl">
-            <form v-if="editingGuest" @submit.prevent="saveGuest" class="p-6">
+            <!-- novalidate: chyby hlási server po slovensky, nie prehliadač po anglicky. -->
+            <form v-if="editingGuest" @submit.prevent="saveGuest" novalidate class="p-6">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Upraviť údaje hosťa</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
                     Rezervácia {{ registration.reservation_number }}
@@ -462,7 +487,7 @@ const closeTicketModal = () => {
 
         <!-- Úprava kontaktu rezervácie -->
         <Modal :show="showContactModal" @close="showContactModal = false" maxWidth="md">
-            <form @submit.prevent="saveContact" class="p-6">
+            <form @submit.prevent="saveContact" novalidate class="p-6">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Upraviť kontakt rezervácie</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
                     Adresa, na ktorú sa posielajú potvrdenia k rezervácii {{ registration.reservation_number }}.
@@ -547,6 +572,8 @@ const closeTicketModal = () => {
                 </div>
             </div>
         </Modal>
+
+        <PaidToggleModal :guest="paidGuest" @close="paidGuest = null" />
 
         <!-- Issue Ticket Confirmation Modal -->
         <Modal :show="showIssueModal" @close="showIssueModal = false" maxWidth="sm">

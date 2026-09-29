@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\Registration;
 use App\Models\Table;
+use App\Rules\DeliverableEmail;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
@@ -21,9 +22,12 @@ class RegistrationAdminController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('ticket_code', $search)
                   ->orWhereHas('registration', fn($q2) =>
                       $q2->where('reservation_number', 'like', "%{$search}%")
                          ->orWhere('registrant_name', 'like', "%{$search}%")
+                         ->orWhere('registrant_email', 'like', "%{$search}%")
                   );
             });
         }
@@ -60,7 +64,7 @@ class RegistrationAdminController extends Controller
 
         $validated = $request->validate([
             'name'           => ['required', 'string', 'max:255', Guest::FULL_NAME_REGEX],
-            'email'          => 'nullable|email|max:255',
+            'email'          => ['nullable', 'string', 'max:255', new DeliverableEmail],
             'allergen_ids'   => 'nullable|array',
             'allergen_ids.*' => 'integer|between:1,14',
             'is_vegan'       => 'boolean',
@@ -81,7 +85,7 @@ class RegistrationAdminController extends Controller
         $guest->update([
             'name'          => $validated['name'],
             'email'         => $validated['email'] ?? null,
-            'allergen_ids'  => $validated['allergen_ids'] ?? [],
+            'allergen_ids'  => Guest::normalizeAllergenIds($validated['allergen_ids'] ?? []),
             'is_vegan'      => $validated['is_vegan'] ?? false,
             'is_vegetarian' => $validated['is_vegetarian'] ?? false,
             'is_teacher'    => $validated['is_teacher'] ?? false,
@@ -143,7 +147,7 @@ class RegistrationAdminController extends Controller
 
         $validated = $request->validate([
             'registrant_name'  => ['required', 'string', 'max:255'],
-            'registrant_email' => ['required', 'email', 'max:255'],
+            'registrant_email' => ['required', 'string', 'max:255', new DeliverableEmail],
         ], [
             'registrant_name.required'  => 'Zadajte meno kontaktnej osoby.',
             'registrant_email.required' => 'Zadajte kontaktný e-mail.',
@@ -234,6 +238,11 @@ class RegistrationAdminController extends Controller
 
         if (!$guest->table_id || !$guest->seat_number) {
             return back()->with('error', 'Nemožno vydať lístok bez prideleného miesta.');
+        }
+
+        // Lístok = vstup na ples. Nezaplatenému hosťovi by ho check-in pustil dnu.
+        if (!$guest->paid) {
+            return back()->with('error', "Hosť {$guest->name} nemá zaplatené. Lístok sa dá vydať až po úhrade.");
         }
 
         $guest->update([

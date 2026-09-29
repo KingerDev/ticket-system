@@ -236,7 +236,7 @@ const capacityPaidPercentage = computed(() => {
                             </div>
                             <div>
                                 <h4 class="text-lg font-medium text-gray-900 dark:text-gray-100">Mapa sály</h4>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Zobrazenie plného stavu sádlania</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Prehľad obsadenosti stolov a miest</p>
                             </div>
                         </Link>
 

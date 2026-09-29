@@ -315,7 +315,7 @@ const getGuestForSeat = (table, seatNum) => {
             
             <div v-if="selectedGuest.allergen_ids?.length || selectedGuest.is_vegan || selectedGuest.is_vegetarian || selectedGuest.allergen_note" class="mb-3 px-3 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium">
                 <span class="block text-xs uppercase opacity-70 mb-0.5">Alergény</span>
-                <span v-if="selectedGuest.allergen_ids?.length">{{ selectedGuest.allergen_ids.join(', ') }}</span>
+                <span v-if="selectedGuest.allergen_ids?.length">{{ [...selectedGuest.allergen_ids].sort((a, b) => a - b).join(', ') }}</span>
                 <span v-if="selectedGuest.is_vegan"> · Vegán</span>
                 <span v-if="selectedGuest.is_vegetarian"> · Vegetarián</span>
                 <span v-if="selectedGuest.allergen_note"> · {{ selectedGuest.allergen_note }}</span>
@@ -328,7 +328,10 @@ const getGuestForSeat = (table, seatNum) => {
 
             <div class="pt-3 border-t border-gray-100 dark:border-gray-700 font-medium text-sm text-center rounded">
                 <span v-if="selectedGuest.checked_in" class="block w-full text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20 py-1 rounded">
-                    ✓ Check-in: {{ new Date(selectedGuest.checked_in_at).toLocaleTimeString() }}
+                    ✓ Check-in: {{ new Date(selectedGuest.checked_in_at).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Bratislava' }) }}
+                </span>
+                <span v-else-if="!selectedGuest.paid" class="block w-full text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20 py-1 rounded">
+                    Nezaplatené
                 </span>
                 <span v-else-if="selectedGuest.ticket_issued" class="block w-full text-yellow-600 bg-yellow-50 dark:text-yellow-400 dark:bg-yellow-900/20 py-1 rounded">
                     Lístok vydaný (neprišiel)

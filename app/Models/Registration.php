@@ -11,7 +11,6 @@ class Registration extends Model
 
     protected $guarded = [];
 
-
     public function guests()
     {
         return $this->hasMany(Guest::class);

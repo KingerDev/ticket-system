@@ -83,7 +83,7 @@ abstract class TestCase extends BaseTestCase
         return $registration->fresh('guests');
     }
 
-    /** Hosť so vydaným lístkom a prideleným miestom. */
+    /** Zaplatený hosť so vydaným lístkom a prideleným miestom. */
     protected function seatedGuest(string $ticketCode = '007', array $attributes = []): Guest
     {
         if (! Table::exists()) {
@@ -97,6 +97,8 @@ abstract class TestCase extends BaseTestCase
             'ticket_issued' => true,
             'table_id'      => Table::first()->id,
             'seat_number'   => 4,
+            // Lístok sa vydáva len zaplateným hosťom.
+            'paid'          => true,
         ], $attributes)])->guests->first();
     }
 }

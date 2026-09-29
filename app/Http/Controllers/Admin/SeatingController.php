@@ -38,6 +38,10 @@ class SeatingController extends Controller
             return back()->with('error', "Rezervácia hosťa {$guest->name} bola stornovaná. Lístok neplatí.");
         }
 
+        if (!$guest->paid) {
+            return back()->with('error', "Hosť {$guest->name} nemá zaplatené. Vstup nepovoľte – pošlite ho k organizátorom.");
+        }
+
         if ($guest->checked_in) {
             return back()->with(
                 'error',
@@ -94,6 +98,8 @@ class SeatingController extends Controller
                 'checked_in'    => $guest->checked_in,
                 'checked_in_at' => $guest->checked_in_at?->format('H:i'),
                 'cancelled'     => $guest->isCancelled(),
+                'cancelled_at'  => $guest->cancelled_at?->format('j. n. Y H:i'),
+                'paid'          => $guest->paid,
             ],
             'error' => null,
         ]);

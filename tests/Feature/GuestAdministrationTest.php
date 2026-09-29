@@ -167,7 +167,7 @@ class GuestAdministrationTest extends TestCase
     public function test_vydanie_listka_pridelí_trojmiestny_kod(): void
     {
         $table = Table::first();
-        $guest = $this->reservation([['name' => 'Jana Nováková', 'table_id' => $table->id, 'seat_number' => 2]])->guests->first();
+        $guest = $this->reservation([['name' => 'Jana Nováková', 'table_id' => $table->id, 'seat_number' => 2, 'paid' => true]])->guests->first();
 
         $this->post(route('admin.guests.issue_ticket', $guest), ['is_teacher' => true])
             ->assertSessionHas('success');
