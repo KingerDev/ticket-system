@@ -44,15 +44,21 @@ class Guest extends Model
         return $query->whereNull('cancelled_at');
     }
 
+    /** Hostia, ktorí majú miesto – bez stornovaných a bez náhradníkov. */
+    public function scopeConfirmed($query)
+    {
+        return $query->active()->whereHas('registration', fn ($q) => $q->whereNull('waitlisted_at'));
+    }
+
     public function scopeCancelled($query)
     {
         return $query->whereNotNull('cancelled_at');
     }
 
-    /** Nezaplatení, ktorých rezervácia ešte platí. */
+    /** Nezaplatení, ktorých rezervácia ešte platí. Náhradníci zatiaľ neplatia. */
     public function scopeAwaitingPayment($query)
     {
-        return $query->active()->where('paid', false);
+        return $query->confirmed()->where('paid', false);
     }
 
     /** Termín uplynul a stále nie je zaplatené – kandidáti na storno. */

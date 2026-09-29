@@ -52,6 +52,12 @@ const showingNavigationDropdown = ref(false);
                                     Pripomienky
                                 </NavLink>
                                 <NavLink
+                                    :href="route('admin.waitlist.index')"
+                                    :active="route().current('admin.waitlist.index')"
+                                >
+                                    Náhradníci
+                                </NavLink>
+                                <NavLink
                                     :href="route('admin.export')"
                                     :active="route().current('admin.export')"
                                 >
@@ -177,6 +183,12 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('dashboard')"
                         >
                             Prehľad
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('admin.waitlist.index')"
+                            :active="route().current('admin.waitlist.index')"
+                        >
+                            Náhradníci
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             v-if="$page.props.auth.user.is_super_admin"

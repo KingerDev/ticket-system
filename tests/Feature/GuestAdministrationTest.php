@@ -254,4 +254,21 @@ class GuestAdministrationTest extends TestCase
             ->assertOk()
             ->assertSee('Peter');
     }
+
+    public function test_zmazanie_celej_rezervacie(): void
+    {
+        $registration = $this->reservation([['name' => 'Jana Nováková'], ['name' => 'Peter Malý']]);
+        $ostatna = $this->reservation([['name' => 'Eva Krátka']]);
+
+        $this->delete(route('admin.registrations.destroy', $registration->id))
+            ->assertRedirect(route('admin.registrations.index'))
+            ->assertSessionHas('success');
+
+        $this->assertNull(\App\Models\Registration::find($registration->id));
+        $this->assertSame(0, \App\Models\Guest::where('registration_id', $registration->id)->count(), 'hostia sa zmažú s ňou');
+        $this->assertNotNull($ostatna->fresh(), 'iné rezervácie zostanú');
+
+        $log = \App\Models\ActivityLog::where('action', 'registration.deleted')->first();
+        $this->assertSame(['Jana Nováková', 'Peter Malý'], $log->properties['hostia']);
+    }
 }

@@ -15,4 +15,9 @@ class Table extends Model
     {
         return $this->hasMany(Guest::class);
     }
+
+    public function seatBlocks()
+    {
+        return $this->hasMany(SeatBlock::class);
+    }
 }

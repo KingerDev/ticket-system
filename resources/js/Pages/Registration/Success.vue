@@ -11,6 +11,10 @@ defineProps({
         type: String,
         default: null,
     },
+    waitlisted: {
+        type: Boolean,
+        default: false,
+    },
 });
 </script>
 
@@ -41,6 +45,19 @@ defineProps({
                 Vaša registrácia na <strong class="text-gray-900 dark:text-gray-200">Beánie EF UMB 2026</strong> bola úspešne prijatá.
             </p>
 
+            <!-- Náhradník: najdôležitejšia informácia je „zatiaľ neplaťte“, preto hneď hore. -->
+            <div
+                v-if="waitlisted"
+                class="relative z-10 mb-8 max-w-md mx-auto text-left rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-5"
+                role="status"
+            >
+                <p class="font-bold text-amber-800 dark:text-amber-200">Ste medzi náhradníkmi – zatiaľ neplaťte.</p>
+                <p class="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                    Pre celú vašu skupinu už nebolo dosť voľných miest. Ak sa miesto uvoľní,
+                    ozveme sa vám e-mailom a vtedy môžete prísť zaplatiť.
+                </p>
+            </div>
+
             <div v-if="reservation_number" class="relative z-10 mb-8">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Číslo vašej rezervácie</p>
                 <p class="text-3xl font-mono font-bold tracking-wider text-gray-900 dark:text-white select-all">
@@ -63,7 +80,7 @@ defineProps({
                             Potvrdenie s číslom rezervácie sme poslali na e-mail kontaktnej osoby.
                         </p>
                     </li>
-                    <li class="flex items-start">
+                    <li v-if="!waitlisted" class="flex items-start">
                         <div class="flex-shrink-0 mt-1">
                             <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
                         </div>

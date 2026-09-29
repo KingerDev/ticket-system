@@ -47,13 +47,18 @@ const cancelAssignment = () => {
     seatWarning.value = '';
 };
 
-const handleSeatSelected = ({ table, seatNum, guest }) => {
+const handleSeatSelected = ({ table, seatNum, guest, block }) => {
     // If we have an active guest that needs a seat mapped to them
     if (!activeGuestId.value) return;
     
     // Cannot select an occupied seat (unless it is exactly the seat this guest already has)
     if (guest && guest.id !== activeGuestId.value) {
         seatWarning.value = `Miesto ${seatNum} pri stole ${table.name} je už obsadené (${guest.name}). Vyberte iné.`;
+        return;
+    }
+
+    if (!guest && block) {
+        seatWarning.value = `Miesto ${seatNum} pri stole ${table.name} je rezervované${block.label ? ` (${block.label})` : ''}. Vyberte iné alebo zrušte rezerváciu na mape sály.`;
         return;
     }
 
@@ -188,6 +193,46 @@ const confirmIssueTicket = () => {
 
 const paidGuest = ref(null);
 
+// --- Zmazanie celej rezervácie ---------------------------------------------
+const showDeleteRegistrationModal = ref(false);
+const deletingRegistration = ref(false);
+
+// Čo sa zmazaním stratí – admin to musí vidieť pred potvrdením.
+const deleteWarnings = computed(() => {
+    const guests = props.registration.guests;
+    const names = (list) => list.map(g => g.name).join(', ');
+    const warnings = [];
+    const paid = guests.filter(g => g.paid && !g.cancelled_at);
+    const tickets = guests.filter(g => g.ticket_issued && !g.cancelled_at);
+    const inside = guests.filter(g => g.checked_in);
+    if (paid.length) warnings.push(`Zaplatené: ${names(paid)}.`);
+    if (tickets.length) warnings.push(`Vydané lístky: ${tickets.map(g => `${g.name} (č. ${g.ticket_code})`).join(', ')}.`);
+    if (inside.length) warnings.push(`Zapísaní pri vstupe: ${names(inside)}.`);
+    return warnings;
+});
+
+const confirmDeleteRegistration = () => {
+    deletingRegistration.value = true;
+    router.delete(route('admin.registrations.destroy', props.registration.id), {
+        onFinish: () => {
+            deletingRegistration.value = false;
+            showDeleteRegistrationModal.value = false;
+        },
+    });
+};
+
+// Náhradníci nemajú miesto – kým ich organizátori nepresunú, nedá sa im nič prideliť.
+const isWaitlisted = computed(() => !!props.registration.waitlisted_at);
+const promoting = ref(false);
+
+const promote = () => {
+    promoting.value = true;
+    router.post(route('admin.waitlist.promote', props.registration.id), {}, {
+        preserveScroll: true,
+        onFinish: () => { promoting.value = false; },
+    });
+};
+
 const guestCountLabel = computed(() => {
     const n = props.registration.guests.length;
     if (n === 1) return 'Registrácia — 1 hosť';
@@ -244,6 +289,31 @@ const closeTicketModal = () => {
                         class="ml-auto px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
                     >
                         Upraviť kontakt
+                    </button>
+                    <button
+                        @click="showDeleteRegistrationModal = true"
+                        class="px-3 py-1.5 border border-red-200 dark:border-red-900/50 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 bg-white dark:bg-gray-800"
+                    >
+                        Zmazať rezerváciu
+                    </button>
+                </div>
+
+                <div
+                    v-if="isWaitlisted"
+                    class="flex flex-wrap items-center gap-4 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-5"
+                >
+                    <div class="flex-1 min-w-[16rem] text-sm text-amber-800 dark:text-amber-200">
+                        <p class="font-bold text-base">Náhradník</p>
+                        <p class="mt-0.5">
+                            Pri registrácii už nebolo dosť voľných miest. Hostia zatiaľ neplatia a nedá sa im prideliť miesto ani vydať lístok.
+                        </p>
+                    </div>
+                    <button
+                        @click="promote"
+                        :disabled="promoting"
+                        class="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold disabled:opacity-50"
+                    >
+                        {{ promoting ? 'Presúvam…' : 'Presunúť medzi riadne' }}
                     </button>
                 </div>
 
@@ -317,7 +387,7 @@ const closeTicketModal = () => {
                                     </button>
 
                                     <button
-                                        v-if="!guest.cancelled_at"
+                                        v-if="!guest.cancelled_at && !isWaitlisted"
                                         @click="selectGuestForAssignment(guest)"
                                         class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
                                         :class="{'ring-2 ring-blue-500': activeGuestId === guest.id}"
@@ -329,14 +399,14 @@ const closeTicketModal = () => {
                                         Učiteľ
                                     </span>
                                     <PrimaryButton
-                                        v-if="!guest.cancelled_at && guest.table_id && !guest.ticket_issued && guest.paid"
+                                        v-if="!isWaitlisted && !guest.cancelled_at && guest.table_id && !guest.ticket_issued && guest.paid"
                                         @click="openIssueModal(guest)"
                                         class="bg-blue-600 hover:bg-blue-700 text-white"
                                     >
                                         Vydať lístok
                                     </PrimaryButton>
                                     <span
-                                        v-else-if="!guest.cancelled_at && guest.table_id && !guest.ticket_issued"
+                                        v-else-if="!isWaitlisted && !guest.cancelled_at && guest.table_id && !guest.ticket_issued"
                                         class="self-center text-xs text-gray-500 dark:text-gray-400"
                                     >
                                         Lístok až po úhrade
@@ -523,6 +593,45 @@ const closeTicketModal = () => {
                     </PrimaryButton>
                 </div>
             </form>
+        </Modal>
+
+        <!-- Potvrdenie zmazania celej rezervácie -->
+        <Modal :show="showDeleteRegistrationModal" @close="showDeleteRegistrationModal = false" maxWidth="lg">
+            <div class="p-6">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Zmazať rezerváciu</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    Naozaj chcete zmazať rezerváciu
+                    <strong class="text-gray-900 dark:text-gray-100">{{ registration.reservation_number }}</strong>
+                    ({{ registration.registrant_name }}) so všetkými hosťami:
+                    <strong class="text-gray-900 dark:text-gray-100">{{ registration.guests.map(g => g.name).join(', ') }}</strong>?
+                </p>
+
+                <ul class="mb-4 space-y-1.5 text-sm">
+                    <li class="text-gray-600 dark:text-gray-400">Uvoľnia sa všetky pridelené miesta a vydané lístky prestanú platiť.</li>
+                    <li class="text-gray-600 dark:text-gray-400">Kontaktnej osobe sa žiadny e-mail neposiela.</li>
+                    <li v-for="w in deleteWarnings" :key="w" class="text-amber-700 dark:text-amber-400 font-medium">{{ w }}</li>
+                </ul>
+
+                <div class="mb-6 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300">
+                    Zmazanie je nevratné. Ak rezervácia len nebola zaplatená, použite radšej <strong>storno</strong> v Pripomienkach — to sa dá obnoviť.
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button
+                        @click="showDeleteRegistrationModal = false"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                        Zrušiť
+                    </button>
+                    <button
+                        @click="confirmDeleteRegistration"
+                        :disabled="deletingRegistration"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {{ deletingRegistration ? 'Mažem…' : 'Zmazať rezerváciu' }}
+                    </button>
+                </div>
+            </div>
         </Modal>
 
         <!-- Potvrdenie odstránenia hosťa -->

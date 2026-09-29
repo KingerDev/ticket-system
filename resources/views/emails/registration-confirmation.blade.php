@@ -7,7 +7,11 @@
 <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
     {{-- Zalamovanie dlhých slov: text bez medzier (napr. odkaz) by inak roztiahol e-mail do šírky. --}}
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;">
-        <h2 style="color: #2b6cb0;">Potvrdenie rezervácie na Beánie</h2>
+        @php($waitlisted = $registration->isWaitlisted())
+
+        <h2 style="color: #2b6cb0;">
+            {{ $waitlisted ? 'Registrácia na Beánie – zoznam náhradníkov' : 'Potvrdenie rezervácie na Beánie' }}
+        </h2>
 
         @if($recipient)
             <p>Dobrý deň, {{ $recipient->name }},</p>
@@ -18,7 +22,11 @@
             <h3>Vaše údaje:</h3>
         @else
             <p>Dobrý deň, {{ $registration->registrant_name }},</p>
-            <p>Vaša rezervácia s číslom <strong>{{ $registration->reservation_number }}</strong> bola úspešne vytvorená.</p>
+            @if($waitlisted)
+                <p>Vašu registráciu s číslom <strong>{{ $registration->reservation_number }}</strong> sme prijali.</p>
+            @else
+                <p>Vaša rezervácia s číslom <strong>{{ $registration->reservation_number }}</strong> bola úspešne vytvorená.</p>
+            @endif
             <h3>Zoznam hostí:</h3>
         @endif
 
@@ -45,8 +53,17 @@
         <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;">
 
         <p><strong>Ďalšie kroky:</strong></p>
-        @include('emails.partials.payment')
-        <p>Po úhrade vám pridelíme miesta pri stole a vydáme lístky.</p>
+        @if($waitlisted)
+            <div style="background: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px 16px; margin: 0 0 16px;">
+                <p style="margin: 0;">
+                    Pre celú vašu skupinu už nebolo dosť voľných miest, preto ste <strong>medzi náhradníkmi</strong>.
+                    <strong>Zatiaľ neplaťte.</strong> Ak sa miesto uvoľní, ozveme sa vám e-mailom a vtedy môžete prísť zaplatiť.
+                </p>
+            </div>
+        @else
+            @include('emails.partials.payment')
+            <p>Po úhrade vám pridelíme miesta pri stole a vydáme lístky.</p>
+        @endif
         @if($recipient)
             <p>
                 @include('emails.partials.reply', [

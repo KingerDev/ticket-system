@@ -11,6 +11,21 @@ class Registration extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'waitlisted_at' => 'datetime',
+        'promoted_at'   => 'datetime',
+    ];
+
+    public function isWaitlisted(): bool
+    {
+        return $this->waitlisted_at !== null;
+    }
+
+    public function scopeWaitlisted($query)
+    {
+        return $query->whereNotNull('waitlisted_at');
+    }
+
     public function guests()
     {
         return $this->hasMany(Guest::class);

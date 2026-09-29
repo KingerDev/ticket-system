@@ -41,7 +41,9 @@ class RegistrationConfirmation extends Mailable implements ShouldQueue
         $replyTo = config('mail.reply_to.address');
 
         return new Envelope(
-            subject: 'Potvrdenie rezervácie na Beánie',
+            subject: $this->registration->isWaitlisted()
+                ? 'Registrácia na Beánie – zoznam náhradníkov'
+                : 'Potvrdenie rezervácie na Beánie',
             // Bez toho by odpoveď hosťa skončila na odosielacej adrese,
             // ktorá poštu neprijíma.
             replyTo: $replyTo ? [new Address($replyTo, config('mail.reply_to.name') ?? '')] : [],

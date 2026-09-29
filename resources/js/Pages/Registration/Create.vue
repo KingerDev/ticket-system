@@ -11,6 +11,8 @@ const props = defineProps({
     allergens: { type: Array, required: true },
     // Kde a kedy sa platí; kým ho organizátori nezverejnia, je prázdne.
     paymentInfo: { type: String, default: null },
+    // Voľné miesta pre verejnosť; null = sála ešte nie je nastavená, bez limitu.
+    freeSeats: { type: Number, default: null },
 });
 
 const newGuest = () => ({
@@ -102,6 +104,18 @@ const DIETS = [
 ];
 
 /** Slovenské skloňovanie: 1 hosťa, 2 hostí, 5 hostí. */
+/** 1 voľné miesto, 2–4 voľné miesta, 5 voľných miest. */
+const seatsLabel = (n) => (n === 1 ? '1 voľné miesto' : n >= 2 && n <= 4 ? `${n} voľné miesta` : `${n} voľných miest`);
+
+// Pri menej ako 30 miestach dáme vedieť, že dochádzajú.
+const LOW_SEATS = 30;
+const hasLimit = computed(() => props.freeSeats !== null);
+const soldOut = computed(() => hasLimit.value && props.freeSeats === 0);
+const seatsLow = computed(() => hasLimit.value && props.freeSeats > 0 && props.freeSeats <= LOW_SEATS);
+
+// Celá skupina sa nezmestí → pôjde celá medzi náhradníkov (nedelí sa).
+const willBeWaitlisted = computed(() => hasLimit.value && form.guests.length > props.freeSeats);
+
 const guestCountLabel = computed(() =>
     form.guests.length === 1 ? '1 hosťa' : `${form.guests.length} hostí`
 );
@@ -151,6 +165,26 @@ const submit = () => {
                         </span>
                     </li>
                 </ol>
+            </div>
+
+            <!-- Kapacita: vopred povedať, koľko miest zostáva, nech nikoho neprekvapí zoznam náhradníkov. -->
+            <div
+                v-if="soldOut"
+                class="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200"
+                role="status"
+            >
+                <p class="font-semibold">Všetky miesta sú už obsadené.</p>
+                <p class="mt-1">
+                    Registráciu môžete odoslať ako <strong>náhradník</strong>. Zatiaľ neplaťte – ak sa miesto uvoľní,
+                    ozveme sa vám e-mailom.
+                </p>
+            </div>
+            <div
+                v-else-if="seatsLow"
+                class="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200"
+                role="status"
+            >
+                Zostáva už len <strong>{{ seatsLabel(freeSeats) }}</strong>.
             </div>
 
             <form @submit.prevent="submit" class="mt-8 space-y-6">
@@ -354,6 +388,21 @@ const submit = () => {
 
                 <InputError class="text-center" :message="form.errors.guests" />
 
+                <div
+                    v-if="willBeWaitlisted && !soldOut"
+                    class="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200"
+                    role="alert"
+                >
+                    <p class="font-semibold">
+                        Zostáva už len {{ seatsLabel(freeSeats) }}, vy prihlasujete {{ guestCountLabel }}.
+                    </p>
+                    <p class="mt-1">
+                        Ak registráciu odošlete takto, celá skupina sa zaradí medzi <strong>náhradníkov</strong>.
+                        Zatiaľ neplaťte – ak sa miesto uvoľní, ozveme sa vám e-mailom.
+                        Ak chcete riadne miesto hneď, znížte počet hostí na {{ freeSeats }}.
+                    </p>
+                </div>
+
                 <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <PrimaryButton
                         class="w-full justify-center py-4 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-md hover:shadow-lg"
@@ -361,6 +410,7 @@ const submit = () => {
                         :disabled="form.processing"
                     >
                         <span v-if="form.processing">Odosielam…</span>
+                        <span v-else-if="willBeWaitlisted">Odoslať ako náhradník pre {{ guestCountLabel }}</span>
                         <span v-else>Odoslať registráciu pre {{ guestCountLabel }}</span>
                     </PrimaryButton>
                     <p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">

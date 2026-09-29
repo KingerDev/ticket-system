@@ -1,7 +1,12 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import Modal from '@/Components/Modal.vue';
+import InputError from '@/Components/InputError.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import TextInput from '@/Components/TextInput.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
 
 const props = defineProps({
     config: Object,
@@ -17,7 +22,12 @@ const props = defineProps({
     embedded: {
         type: Boolean,
         default: false
-    }
+    },
+    // Súhrn kapacity (len na samostatnej stránke mapy).
+    capacity: {
+        type: Object,
+        default: null,
+    },
 });
 
 const emit = defineEmits(['seat-selected']);
@@ -50,7 +60,7 @@ onMounted(async () => {
     fitToScreen();
     if (!props.assignMode) {
         refreshInterval = setInterval(() => {
-            router.reload({ only: ['tables'] });
+            router.reload({ only: ['tables', 'capacity'] });
         }, 10000);
     }
 });
@@ -137,14 +147,19 @@ const handleTouchEnd = () => {
 
 // Seat popover logic
 const selectedGuest = ref(null);
+const selectedBlock = ref(null);
 const popoverStyle = ref({ top: '0px', left: '0px' });
 
-const openPopover = (guest, table, e) => {
-    if (!guest) {
-        selectedGuest.value = null;
+const openPopover = (guest, table, e, block = null) => {
+    selectedGuest.value = null;
+    selectedBlock.value = null;
+    if (block) {
+        selectedBlock.value = { ...block, table_name: table.name };
+    } else if (guest) {
+        selectedGuest.value = { ...guest, table_name: table.name };
+    } else {
         return;
     }
-    selectedGuest.value = { ...guest, table_name: table.name };
     const rect = e.target.getBoundingClientRect();
     popoverStyle.value = {
         top: `${rect.top + window.scrollY - 10}px`,
@@ -154,15 +169,58 @@ const openPopover = (guest, table, e) => {
 
 const closePopover = () => {
     selectedGuest.value = null;
+    selectedBlock.value = null;
+};
+
+// --- Rezervácia stoličiek organizátormi (napr. pre učiteľov) ---------------
+const blockMode = ref(false);
+const blockNotice = ref('');
+const editingBlock = ref(null); // { table, seatNum, block|null }
+const blockForm = useForm({ table_id: null, seat_number: null, label: '' });
+
+const openBlockModal = (table, seatNum, block) => {
+    editingBlock.value = { table, seatNum, block };
+    blockForm.clearErrors();
+    blockForm.table_id = table.id;
+    blockForm.seat_number = seatNum;
+    blockForm.label = block?.label ?? '';
+};
+
+const closeBlockModal = () => { editingBlock.value = null; };
+
+const saveBlock = () => {
+    const options = { preserveScroll: true, onSuccess: closeBlockModal };
+    if (editingBlock.value.block) {
+        blockForm.patch(route('admin.seat_blocks.update', editingBlock.value.block.id), options);
+    } else {
+        blockForm.post(route('admin.seat_blocks.store'), options);
+    }
+};
+
+const removeBlock = () => {
+    router.delete(route('admin.seat_blocks.destroy', editingBlock.value.block.id), {
+        preserveScroll: true,
+        onSuccess: closeBlockModal,
+    });
 };
 
 const handleSeatClick = (table, seatNum, e) => {
     const guest = getGuestForSeat(table, seatNum);
+    const block = getBlockForSeat(table, seatNum);
     if (props.assignMode) {
-        emit('seat-selected', { table, seatNum, guest });
+        emit('seat-selected', { table, seatNum, guest, block });
         return;
     }
-    openPopover(guest, table, e);
+    if (blockMode.value) {
+        if (guest) {
+            blockNotice.value = `Miesto ${seatNum} pri stole ${table.name} už má hosť ${guest.name} – rezervovať sa nedá.`;
+            return;
+        }
+        blockNotice.value = '';
+        openBlockModal(table, seatNum, block);
+        return;
+    }
+    openPopover(guest, table, e, block);
 };
 
 // Map tables to a 2D grid based on row_label
@@ -188,6 +246,7 @@ const getSeatColor = (table, seatNum) => {
         return 'bg-blue-500 border-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.9)] z-30 scale-125';
     }
     const guest = table.guests.find(g => g.seat_number === seatNum);
+    if (!guest && getBlockForSeat(table, seatNum)) return 'bg-purple-300 border-purple-600 border-dashed';
     if (!guest) return 'bg-white border-gray-300';
     if (guest.checked_in) return 'bg-green-500 border-green-600 shadow-[0_0_10px_rgba(34,197,94,0.6)]';
     if (guest.ticket_issued) return 'bg-yellow-400 border-yellow-500 shadow-[0_0_10px_rgba(250,204,21,0.6)]';
@@ -197,6 +256,10 @@ const getSeatColor = (table, seatNum) => {
 const getGuestForSeat = (table, seatNum) => {
     return table.guests.find(g => g.seat_number === seatNum);
 };
+
+const getBlockForSeat = (table, seatNum) => {
+    return (table.seat_blocks ?? []).find(b => b.seat_number === seatNum);
+};
 </script>
 
 <template>
@@ -204,16 +267,42 @@ const getGuestForSeat = (table, seatNum) => {
 
     <component :is="embedded ? 'div' : AuthenticatedLayout" class="h-full w-full">
         <template v-if="!embedded" #header>
-            <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Interaktívna Mapa Sály</h2>
-                <div class="flex items-center space-x-6 text-sm text-gray-600 dark:text-gray-300">
+            <div class="flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Interaktívna Mapa Sály</h2>
+                    <p v-if="capacity && capacity.total" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Stoličiek {{ capacity.total }} · rezervované organizátormi {{ capacity.blocked }} ·
+                        hostia {{ capacity.taken }} · <strong class="text-gray-700 dark:text-gray-200">voľné pre verejnosť {{ capacity.free }}</strong>
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    @click="blockMode = !blockMode; blockNotice = ''; closePopover()"
+                    class="px-4 py-2 rounded-md text-sm font-semibold border transition-colors"
+                    :class="blockMode
+                        ? 'bg-purple-600 border-purple-600 text-white hover:bg-purple-700'
+                        : 'bg-white dark:bg-gray-800 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20'"
+                >
+                    {{ blockMode ? 'Ukončiť rezerváciu miest' : 'Rezervovať miesta' }}
+                </button>
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-300 w-full">
                     <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-white border border-gray-300 mr-2 display-block"></span> Voľné</div>
+                    <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-300 border border-dashed border-purple-600 mr-2 display-block"></span> Rezervované organizátormi</div>
                     <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-400 border border-gray-500 mr-2 display-block"></span> Obsadené (bez lístka)</div>
                     <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 mr-2 display-block"></span> Lístok vydaný (neprišiel)</div>
                     <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 border border-green-600 mr-2 display-block"></span> Na mieste (Check-in)</div>
                 </div>
             </div>
         </template>
+
+        <div
+            v-if="blockMode"
+            class="bg-purple-600 text-white px-6 py-3 text-sm font-medium"
+        >
+            Režim rezervácie: kliknite na voľnú stoličku a zadajte, pre koho je (napr. „Učiteľ – doc. Novák“).
+            Kliknutím na rezervovanú ju upravíte alebo uvoľníte.
+            <span v-if="blockNotice" role="alert" class="block mt-1 font-semibold text-amber-200">{{ blockNotice }}</span>
+        </div>
 
         <!-- Fullscreen Map Container -->
         <div
@@ -298,6 +387,19 @@ const getGuestForSeat = (table, seatNum) => {
             <button @click.stop="resetView" class="w-10 h-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow text-gray-700 dark:text-gray-200 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-center" title="Resetovať pohľad">⊙</button>
         </div>
 
+        <!-- Popover rezervovanej stoličky -->
+        <div
+            v-if="selectedBlock"
+            class="fixed bg-white dark:bg-gray-800 p-5 rounded-xl shadow-2xl border border-purple-200 dark:border-purple-800 z-50 w-72 pointer-events-none transform -translate-y-1/2"
+            :style="popoverStyle"
+        >
+            <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1">Rezervované organizátormi</p>
+            <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-1">{{ selectedBlock.label || 'Bez popisu' }}</h4>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                <strong>Stôl:</strong> {{ selectedBlock.table_name }}, <strong>Miesto:</strong> {{ selectedBlock.seat_number }}
+            </p>
+        </div>
+
         <!-- Popover -->
         <div 
             v-if="selectedGuest"
@@ -341,6 +443,46 @@ const getGuestForSeat = (table, seatNum) => {
                 </span>
             </div>
         </div>
-        
+
+        <!-- Rezervácia / úprava zablokovanej stoličky -->
+        <Modal :show="!!editingBlock" @close="closeBlockModal" maxWidth="md">
+            <form v-if="editingBlock" @submit.prevent="saveBlock" class="p-6">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                    {{ editingBlock.block ? 'Rezervované miesto' : 'Rezervovať miesto' }}
+                </h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                    Stôl {{ editingBlock.table.name }}, miesto {{ editingBlock.seatNum }}.
+                    Rezervované miesto sa nedá prideliť hosťovi a nepočíta sa do voľných miest vo formulári.
+                </p>
+
+                <InputLabel for="block_label" value="Pre koho (nepovinné)" />
+                <TextInput id="block_label" type="text" class="mt-1 block w-full" v-model="blockForm.label" maxlength="255" placeholder="Napr. Učiteľ – doc. Novák" />
+                <InputError class="mt-1" :message="blockForm.errors.label || blockForm.errors.seat_number" />
+
+                <div class="flex flex-wrap justify-between gap-3 mt-6">
+                    <button
+                        v-if="editingBlock.block"
+                        type="button"
+                        @click="removeBlock"
+                        class="px-4 py-2 border border-red-200 dark:border-red-900/50 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                        Zrušiť rezerváciu
+                    </button>
+                    <div class="flex gap-3 ml-auto">
+                        <button
+                            type="button"
+                            @click="closeBlockModal"
+                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            Späť
+                        </button>
+                        <PrimaryButton :disabled="blockForm.processing" :class="{ 'opacity-25': blockForm.processing }">
+                            {{ editingBlock.block ? 'Uložiť' : 'Rezervovať' }}
+                        </PrimaryButton>
+                    </div>
+                </div>
+            </form>
+        </Modal>
+
     </component>
 </template>

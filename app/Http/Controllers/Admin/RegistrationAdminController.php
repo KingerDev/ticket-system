@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\Registration;
+use App\Models\SeatBlock;
 use App\Models\Table;
 use App\Rules\DeliverableEmail;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ class RegistrationAdminController extends Controller
     public function show($id)
     {
         $registration = Registration::with(['guests.table'])->findOrFail($id);
-        $tables = Table::with(['guests.registration'])->get();
+        $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
 
         return Inertia::render('Admin/Registrations/Show', [
             'registration' => $registration,
@@ -140,6 +141,38 @@ class RegistrationAdminController extends Controller
         return back()->with('success', "Hosť {$guestName} bol odstránený.");
     }
 
+    /**
+     * Zmazanie celej rezervácie aj so všetkými hosťami.
+     *
+     * Na rozdiel od storna je nevratné – miesta sa uvoľnia a záznam zmizne.
+     * V zázname činnosti zostanú mená, nech sa dá dohľadať, čo sa zmazalo.
+     */
+    public function destroy($id)
+    {
+        $registration = Registration::with('guests')->findOrFail($id);
+        $number = $registration->reservation_number;
+        $names = $registration->guests->pluck('name')->all();
+
+        $registration->delete(); // hostia sa zmažú kaskádou
+
+        ActivityLog::record(
+            'registration.deleted',
+            sprintf(
+                'Zmazal rezerváciu %s (%s, %d %s)',
+                $number,
+                $registration->registrant_name,
+                count($names),
+                count($names) === 1 ? 'hosť' : (count($names) < 5 ? 'hostia' : 'hostí'),
+            ),
+            null,
+            ['hostia' => $names, 'kontakt' => $registration->registrant_email],
+        );
+
+        return redirect()
+            ->route('admin.registrations.index')
+            ->with('success', "Rezervácia {$number} bola zmazaná.");
+    }
+
     /** Kontaktné údaje rezervácie – adresa, na ktorú chodia potvrdenia. */
     public function updateContact(Request $request, $id)
     {
@@ -180,7 +213,16 @@ class RegistrationAdminController extends Controller
         if ($guest->isCancelled()) {
             return back()->with('error', "Rezervácia hosťa {$guest->name} je stornovaná. Najprv ju obnovte.");
         }
-        
+
+        if ($registration->isWaitlisted()) {
+            return back()->with('error', "Rezervácia {$registration->reservation_number} je medzi náhradníkmi. Najprv ju presuňte medzi riadne.");
+        }
+
+        $block = SeatBlock::where('table_id', $request->table_id)->where('seat_number', $request->seat_number)->first();
+        if ($block) {
+            return back()->with('error', 'Toto miesto je rezervované' . ($block->label ? " ({$block->label})" : '') . '. Najprv zrušte rezerváciu na mape sály.');
+        }
+
         // Ensure seat is free
         $seatOccupied = Guest::where('table_id', $request->table_id)
             ->where('seat_number', $request->seat_number)
@@ -234,6 +276,10 @@ class RegistrationAdminController extends Controller
 
         if ($guest->isCancelled()) {
             return back()->with('error', "Rezervácia hosťa {$guest->name} je stornovaná. Najprv ju obnovte.");
+        }
+
+        if ($guest->registration?->isWaitlisted()) {
+            return back()->with('error', "Hosť {$guest->name} je medzi náhradníkmi. Lístok sa dá vydať až po presune medzi riadne.");
         }
 
         if (!$guest->table_id || !$guest->seat_number) {

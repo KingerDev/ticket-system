@@ -28,8 +28,8 @@ class ExportController extends Controller
             'include_ticket'    => 'nullable|boolean',
         ]);
 
-        // Stornovaní hostia do zoznamov pre kuchyňu ani vstup nepatria.
-        $guests = Guest::active()->with(['table', 'registration'])->get();
+        // Stornovaní ani náhradníci do zoznamov pre kuchyňu ani vstup nepatria.
+        $guests = Guest::confirmed()->with(['table', 'registration'])->get();
 
         // Sort
         if ($request->sort_by === 'name') {

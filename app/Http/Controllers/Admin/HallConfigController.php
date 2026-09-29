@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\HallConfig;
+use App\Models\SeatBlock;
 use App\Models\Table;
+use App\Support\Capacity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -71,6 +73,11 @@ class HallConfigController extends Controller
             $remainingIds = $currentTables->except($namesToRemove)->pluck('id');
             if ($remainingIds->isNotEmpty()) {
                 Table::whereIn('id', $remainingIds)->update(['capacity' => $validated['seats_per_table']]);
+
+                // Rezervované stoličky, ktoré po zmenšení stola už neexistujú.
+                SeatBlock::whereIn('table_id', $remainingIds)
+                    ->where('seat_number', '>', $validated['seats_per_table'])
+                    ->delete();
             }
 
             // Add new tables
@@ -105,11 +112,12 @@ class HallConfigController extends Controller
     public function map()
     {
         $config = HallConfig::first();
-        $tables = Table::with(['guests.registration'])->get();
+        $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
 
         return Inertia::render('Admin/TableMap', [
-            'config' => $config,
-            'tables' => $tables,
+            'config'   => $config,
+            'tables'   => $tables,
+            'capacity' => Capacity::summary(),
         ]);
     }
 }

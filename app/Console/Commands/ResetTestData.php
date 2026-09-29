@@ -50,6 +50,7 @@ class ResetTestData extends Command
         $ponecha = [
             'používateľské účty' => User::count(),
             'stoly v sále'       => Table::count(),
+            'rezervované miesta' => \App\Models\SeatBlock::count(),
         ];
 
         if ($keepLog) {

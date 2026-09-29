@@ -20,6 +20,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     // Registrations
     Route::get('/registrations', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'index'])->name('admin.registrations.index');
     Route::get('/registrations/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'show'])->name('admin.registrations.show');
+    Route::delete('/registrations/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'destroy'])->name('admin.registrations.destroy');
     Route::patch('/registrations/{id}/contact', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateContact'])->name('admin.registrations.update_contact');
     Route::patch('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateGuest'])->name('admin.guests.update');
     Route::delete('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'destroyGuest'])->name('admin.guests.destroy');
@@ -33,6 +34,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::post('/reminders/{id}/final-notice', [\App\Http\Controllers\Admin\ReminderController::class, 'sendFinalNotice'])->name('admin.reminders.final_notice');
     Route::post('/reminders/{id}/cancel', [\App\Http\Controllers\Admin\ReminderController::class, 'cancel'])->name('admin.reminders.cancel');
     Route::post('/guests/{id}/restore', [\App\Http\Controllers\Admin\ReminderController::class, 'restore'])->name('admin.guests.restore');
+
+    // Náhradníci a vopred rezervované stoličky
+    Route::get('/waitlist', [\App\Http\Controllers\Admin\WaitlistController::class, 'index'])->name('admin.waitlist.index');
+    Route::post('/waitlist/{id}/promote', [\App\Http\Controllers\Admin\WaitlistController::class, 'promote'])->name('admin.waitlist.promote');
+    Route::post('/seat-blocks', [\App\Http\Controllers\Admin\SeatBlockController::class, 'store'])->name('admin.seat_blocks.store');
+    Route::patch('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'update'])->name('admin.seat_blocks.update');
+    Route::delete('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'destroy'])->name('admin.seat_blocks.destroy');
 
     // Seating guide
     Route::get('/seating', [\App\Http\Controllers\Admin\SeatingController::class, 'index'])->name('admin.seating');

@@ -13,7 +13,7 @@ class SeatingController extends Controller
 {
     public function index()
     {
-        $tables = Table::with(['guests.registration'])->get();
+        $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
 
         return Inertia::render('Admin/Seating', [
             'tables' => $tables,
@@ -68,7 +68,7 @@ class SeatingController extends Controller
         $request->validate(['ticket_code' => 'required|string']);
 
         $code = str_pad(trim($request->ticket_code), 3, '0', STR_PAD_LEFT);
-        $tables = Table::with(['guests.registration'])->get();
+        $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
 
         $guest = Guest::with(['table', 'registration'])
             ->where('ticket_code', $code)

@@ -123,7 +123,6 @@ const formatValue = (value) => {
                                 </div>
                                 <div class="text-right text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                     <div>{{ log.created_at }}</div>
-                                    <div v-if="log.ip_address" class="mt-0.5">{{ log.ip_address }}</div>
                                 </div>
                             </div>
 

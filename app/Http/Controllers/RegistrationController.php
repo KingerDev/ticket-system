@@ -6,6 +6,7 @@ use App\Mail\RegistrationConfirmation;
 use App\Models\Guest;
 use App\Models\Registration;
 use App\Rules\DeliverableEmail;
+use App\Support\Capacity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -21,6 +22,8 @@ class RegistrationController extends Controller
             'noteMax'    => Guest::NOTE_MAX_LENGTH,
             'allergens'  => Guest::allergenOptions(),
             'paymentInfo' => config('ples.payment_info'),
+            // null = sála ešte nie je nastavená, limit neplatí.
+            'freeSeats'   => Capacity::free(),
         ]);
     }
 
@@ -57,6 +60,12 @@ class RegistrationController extends Controller
         $registration = DB::transaction(function () use ($validated) {
             $firstGuest = $validated['guests'][0];
 
+            // Ak sa celá skupina nezmestí, ide celá medzi náhradníkov – nedelí sa.
+            // Formulár na to upozorní vopred; tu sa to rozhodne s istotou pod zámkom.
+            Capacity::lock();
+            $free = Capacity::free();
+            $waitlisted = $free !== null && count($validated['guests']) > $free;
+
             // Číslo sa odvádza od ID, nie od počtu záznamov. Pri počte by po
             // zmazaní rezervácie dostal ďalší hosť už obsadené číslo a unikátny
             // index by registráciu odmietol chybou 500.
@@ -64,6 +73,7 @@ class RegistrationController extends Controller
                 'reservation_number' => 'DOCASNE-' . Str::uuid(),
                 'registrant_name'    => $firstGuest['name'],
                 'registrant_email'   => trim($firstGuest['email']),
+                'waitlisted_at'      => $waitlisted ? now() : null,
             ]);
 
             $registration->update([
@@ -98,13 +108,16 @@ class RegistrationController extends Controller
             ->each(fn (Guest $guest) => Mail::to($guest->email)
                 ->queue(new RegistrationConfirmation($registration, $guest)));
 
-        return redirect()->route('register.success')->with('reservation_number', $registration->reservation_number);
+        return redirect()->route('register.success')
+            ->with('reservation_number', $registration->reservation_number)
+            ->with('waitlisted', $registration->isWaitlisted());
     }
 
     public function success()
     {
         return Inertia::render('Registration/Success', [
             'reservation_number' => session('reservation_number'),
+            'waitlisted'         => (bool) session('waitlisted'),
             'paymentInfo'        => config('ples.payment_info'),
         ]);
     }

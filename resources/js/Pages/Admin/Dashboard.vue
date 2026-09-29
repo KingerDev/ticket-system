@@ -77,6 +77,13 @@ const capacityPaidPercentage = computed(() => {
                             <span>Registrovaní {{ stats.totalGuests }}</span>
                             <span class="text-green-600 dark:text-green-400">Zaplatení {{ stats.paidCount }}</span>
                         </div>
+                        <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            <div v-if="stats.freeSeats !== null">Voľné pre verejnosť: <strong class="text-gray-800 dark:text-gray-200">{{ stats.freeSeats }}</strong></div>
+                            <div v-if="stats.blockedSeats">Rezervované organizátormi: <strong class="text-purple-600 dark:text-purple-400">{{ stats.blockedSeats }}</strong></div>
+                            <Link v-if="stats.waitlistedGuests" :href="route('admin.waitlist.index')" class="block hover:underline">
+                                Náhradníci: <strong class="text-amber-600 dark:text-amber-400">{{ stats.waitlistedGuests }}</strong>
+                            </Link>
+                        </div>
                     </div>
 
                     <!-- Tickets issued -->

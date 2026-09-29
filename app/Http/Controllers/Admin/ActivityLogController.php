@@ -40,7 +40,6 @@ class ActivityLogController extends Controller
             'action_label' => $log->action_label,
             'description'  => $log->description,
             'properties'   => $log->properties,
-            'ip_address'   => $log->ip_address,
             'created_at'   => $log->created_at?->format('d.m.Y H:i:s'),
         ]);
 
