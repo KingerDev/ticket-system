@@ -11,15 +11,51 @@ use Inertia\Inertia;
 
 class SeatingController extends Controller
 {
+    /** Koľko posledných príchodov ukazuje zoznam „Práve prišli“. */
+    private const RECENT_ARRIVALS = 15;
+
     public function index()
     {
-        $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
+        return $this->render(null, null);
+    }
 
+    /**
+     * Mapa aj zoznam príchodov sú closures, aby ich partial reload
+     * (polling zoznamu „Práve prišli“) zbytočne nenačítaval.
+     */
+    private function render(?array $guest, ?string $error)
+    {
         return Inertia::render('Admin/Seating', [
-            'tables' => $tables,
-            'guest' => null,
-            'error' => null,
+            'tables'         => fn () => Table::with(['guests.registration', 'seatBlocks'])->get(),
+            'recentArrivals' => fn () => $this->recentArrivals(),
+            'guest'          => $guest,
+            'error'          => $error,
         ]);
+    }
+
+    /**
+     * Hostia, ktorých práve pustili dnu pri vstupe – usádzač ich ťukne
+     * namiesto toho, aby znova písal číslo lístka.
+     */
+    private function recentArrivals(): array
+    {
+        return Guest::with('table')
+            ->active()
+            ->where('checked_in', true)
+            ->whereNotNull('checked_in_at')
+            ->orderByDesc('checked_in_at')
+            ->orderByDesc('id')
+            ->limit(self::RECENT_ARRIVALS)
+            ->get()
+            ->map(fn (Guest $g) => [
+                'id'            => $g->id,
+                'name'          => $g->name,
+                'ticket_code'   => $g->ticket_code,
+                'table_name'    => $g->table->name ?? null,
+                'seat_number'   => $g->seat_number,
+                'checked_in_at' => $g->checked_in_at->format('H:i'),
+            ])
+            ->all();
     }
 
     /**
@@ -68,40 +104,31 @@ class SeatingController extends Controller
         $request->validate(['ticket_code' => 'required|string']);
 
         $code = str_pad(trim($request->ticket_code), 3, '0', STR_PAD_LEFT);
-        $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
 
         $guest = Guest::with(['table', 'registration'])
             ->where('ticket_code', $code)
             ->first();
 
         if (!$guest) {
-            return Inertia::render('Admin/Seating', [
-                'tables' => $tables,
-                'guest' => null,
-                'error' => 'Lístok s kódom ' . $code . ' sa nenašiel.',
-            ]);
+            return $this->render(null, 'Lístok s kódom ' . $code . ' sa nenašiel.');
         }
 
-        return Inertia::render('Admin/Seating', [
-            'tables' => $tables,
-            'guest' => [
-                'id'          => $guest->id,
-                'name'        => $guest->name,
-                'is_teacher'  => $guest->is_teacher,
-                // Stĺpec allergens už neexistuje (zrušila ho migrácia
-                // restructure_allergens_in_guests_table), správny je accessor.
-                'allergens'   => $guest->allergens_display,
-                'ticket_code' => $guest->ticket_code,
-                'table_id'    => $guest->table_id,
-                'seat_number' => $guest->seat_number,
-                'table_name'  => $guest->table->name ?? null,
-                'checked_in'    => $guest->checked_in,
-                'checked_in_at' => $guest->checked_in_at?->format('H:i'),
-                'cancelled'     => $guest->isCancelled(),
-                'cancelled_at'  => $guest->cancelled_at?->format('j. n. Y H:i'),
-                'paid'          => $guest->paid,
-            ],
-            'error' => null,
-        ]);
+        return $this->render([
+            'id'          => $guest->id,
+            'name'        => $guest->name,
+            'is_teacher'  => $guest->is_teacher,
+            // Stĺpec allergens už neexistuje (zrušila ho migrácia
+            // restructure_allergens_in_guests_table), správny je accessor.
+            'allergens'   => $guest->allergens_display,
+            'ticket_code' => $guest->ticket_code,
+            'table_id'    => $guest->table_id,
+            'seat_number' => $guest->seat_number,
+            'table_name'  => $guest->table->name ?? null,
+            'checked_in'    => $guest->checked_in,
+            'checked_in_at' => $guest->checked_in_at?->format('H:i'),
+            'cancelled'     => $guest->isCancelled(),
+            'cancelled_at'  => $guest->cancelled_at?->format('j. n. Y H:i'),
+            'paid'          => $guest->paid,
+        ], null);
     }
 }

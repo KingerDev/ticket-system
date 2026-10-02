@@ -110,6 +110,65 @@ class SeatingAndCheckInTest extends TestCase
             ->assertSessionHasErrors('guest_id');
     }
 
+    // --- zoznam „Práve prišli“ --------------------------------------------
+
+    public function test_prave_prisli_ukaze_zapisanych_od_najnovsieho(): void
+    {
+        $this->seatedGuest('001', ['name' => 'Prvý', 'checked_in' => true, 'checked_in_at' => now()->subMinutes(5)]);
+        $this->seatedGuest('002', ['name' => 'Druhý', 'checked_in' => true, 'checked_in_at' => now()->subMinute()]);
+        $this->seatedGuest('003', ['name' => 'Ešte vonku']);
+        $this->seatedGuest('004', [
+            'name' => 'Stornovaný', 'checked_in' => true, 'checked_in_at' => now(), 'cancelled_at' => now(),
+        ]);
+
+        $prisli = $this->get(route('admin.seating'))->viewData('page')['props']['recentArrivals'];
+
+        $this->assertSame(['Druhý', 'Prvý'], array_column($prisli, 'name'));
+        $this->assertSame('002', $prisli[0]['ticket_code']);
+        $this->assertSame('A1', $prisli[0]['table_name']);
+        $this->assertSame(4, $prisli[0]['seat_number']);
+    }
+
+    public function test_prave_prisli_ukaze_najviac_15_hosti(): void
+    {
+        foreach (range(1, 20) as $i) {
+            $this->seatedGuest(str_pad((string) $i, 3, '0', STR_PAD_LEFT), [
+                'name' => "Hosť {$i}", 'checked_in' => true, 'checked_in_at' => now()->subMinutes(20 - $i),
+            ]);
+        }
+
+        $prisli = $this->get(route('admin.seating'))->viewData('page')['props']['recentArrivals'];
+
+        $this->assertCount(15, $prisli);
+        $this->assertSame('Hosť 20', $prisli[0]['name']);
+    }
+
+    public function test_prave_prisli_zachyti_hosta_zapisaneho_pri_vstupe(): void
+    {
+        $this->seatedGuest('042');
+        $this->post(route('admin.checkin.store'), ['ticket_code' => '042']);
+
+        $prisli = $this->get(route('admin.seating'))->viewData('page')['props']['recentArrivals'];
+
+        $this->assertSame(['Jana Nováková'], array_column($prisli, 'name'));
+    }
+
+    public function test_obnovenie_zoznamu_nenacitava_mapu_ani_nestrati_hosta(): void
+    {
+        $this->seatedGuest('007', ['checked_in' => true, 'checked_in_at' => now()]);
+
+        $this->get(route('admin.seating.lookup', ['ticket_code' => '007']))
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Seating')
+                ->where('guest.ticket_code', '007')
+                ->reloadOnly('recentArrivals', fn ($reload) => $reload
+                    ->has('recentArrivals', 1)
+                    ->missing('tables')
+                    ->missing('guest')
+                )
+            );
+    }
+
     // --- check-in stránka -------------------------------------------------
 
     public function test_checkin_zapise_hosta_podla_kodu(): void

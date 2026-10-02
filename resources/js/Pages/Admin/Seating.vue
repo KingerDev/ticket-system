@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePoll } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import TableMap from './TableMap.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -8,6 +8,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 
 const props = defineProps({
     tables: Array,
+    recentArrivals: { type: Array, default: () => [] },
     guest: Object,
     error: String,
 });
@@ -30,6 +31,15 @@ const confirmArrival = () => {
         preserveScroll: true,
         onFinish: () => { checkingIn.value = false; },
     });
+};
+
+// Zoznam „Práve prišli“ sa obnovuje sám, mapa sa pri tom nenačítava.
+usePoll(5000, { only: ['recentArrivals'] });
+
+// Ťuknutie na hosťa zo zoznamu = to isté ako napísať jeho číslo lístka.
+const showArrival = (arrival) => {
+    ticketCode.value = arrival.ticket_code;
+    lookup();
 };
 
 const lookup = () => {
@@ -66,6 +76,38 @@ const lookup = () => {
                         />
                         <PrimaryButton type="submit">Nájsť</PrimaryButton>
                     </form>
+                </div>
+
+                <!-- Práve prišli: hostia z check-inu pri vstupe, netreba znova písať lístok -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                    <div class="flex items-baseline justify-between gap-3 mb-3">
+                        <h3 class="text-base font-semibold text-gray-800 dark:text-gray-200">Práve prišli</h3>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">Obnovuje sa automaticky</span>
+                    </div>
+                    <p v-if="!recentArrivals.length" class="text-sm text-gray-500 dark:text-gray-400">
+                        Zatiaľ nikto neprešiel vstupom.
+                    </p>
+                    <div v-else class="flex flex-wrap gap-2">
+                        <button
+                            v-for="arrival in recentArrivals"
+                            :key="arrival.id"
+                            type="button"
+                            @click="showArrival(arrival)"
+                            :class="[
+                                'text-left px-4 py-2.5 rounded-lg border transition-colors',
+                                guest?.id === arrival.id
+                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                    : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300',
+                            ]"
+                        >
+                            <div class="font-semibold leading-tight">{{ arrival.name }}</div>
+                            <div :class="['text-xs mt-0.5', guest?.id === arrival.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400']">
+                                <template v-if="arrival.table_name">Stôl {{ arrival.table_name }}, miesto {{ arrival.seat_number }}</template>
+                                <template v-else>Bez miesta</template>
+                                · {{ arrival.checked_in_at }}
+                            </div>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Error -->
