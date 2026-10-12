@@ -197,7 +197,8 @@ class ReminderController extends Controller
         $plna = DB::transaction(function () use ($guest) {
             Capacity::lock();
 
-            if (! $guest->registration?->isWaitlisted() && Capacity::free() === 0) {
+            if (! $guest->registration?->isWaitlisted()
+                && ! Capacity::fits($guest->is_teacher ? 0 : 1, $guest->is_teacher ? 1 : 0)) {
                 return true;
             }
 

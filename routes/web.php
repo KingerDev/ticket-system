@@ -12,6 +12,8 @@ Route::get('/', function () {
 
 Route::get('/register', [RegistrationController::class, 'create'])->name('register');
 Route::post('/register', [RegistrationController::class, 'store'])->name('register.store');
+Route::get('/register/ucitelia', [RegistrationController::class, 'createTeachers'])->name('register.teachers');
+Route::post('/register/ucitelia', [RegistrationController::class, 'storeTeachers'])->name('register.teachers.store');
 Route::get('/register/success', [RegistrationController::class, 'success'])->name('register.success');
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
@@ -25,6 +27,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::patch('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateGuest'])->name('admin.guests.update');
     Route::delete('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'destroyGuest'])->name('admin.guests.destroy');
     Route::post('/registrations/{id}/assign-seat', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'assignSeat'])->name('admin.registrations.assign');
+    Route::post('/guests/{id}/toggle-teacher', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'toggleTeacher'])->name('admin.guests.toggle_teacher');
     Route::post('/guests/{id}/toggle-paid', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'togglePaid'])->name('admin.guests.toggle_paid');
     Route::post('/guests/{id}/issue-ticket', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'issueTicket'])->name('admin.guests.issue_ticket');
 

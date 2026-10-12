@@ -256,6 +256,28 @@ class RegistrationAdminController extends Controller
         return back()->with('success', "Miesto pre {$guest->name} bolo úspešne pridelené{$blockNote}.");
     }
 
+    /**
+     * Rýchle označenie učiteľa zo zoznamu registrácií. Učiteľ bez miesta
+     * sa ráta do rezervovaných stoličiek, takže sa tým uvoľní verejné miesto.
+     */
+    public function toggleTeacher($id)
+    {
+        $guest = Guest::findOrFail($id);
+        $guest->update(['is_teacher' => ! $guest->is_teacher]);
+
+        ActivityLog::record(
+            'guest.teacher_toggled',
+            $guest->is_teacher
+                ? "Označil hosťa {$guest->name} ako učiteľa"
+                : "Zrušil označenie učiteľa pri hosťovi {$guest->name}",
+            $guest,
+        );
+
+        return back()->with('success', $guest->is_teacher
+            ? "{$guest->name} je označený ako učiteľ."
+            : "{$guest->name} už nie je označený ako učiteľ.");
+    }
+
     public function togglePaid($id)
     {
         $guest = Guest::findOrFail($id);

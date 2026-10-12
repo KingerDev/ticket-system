@@ -18,16 +18,45 @@ class RegistrationController extends Controller
 {
     public function create()
     {
+        return $this->form(false);
+    }
+
+    /**
+     * Samostatný formulár pre učiteľov. Všetci hostia z neho sú učitelia,
+     * a tak berú najprv z rezervovaných stoličiek, nie z verejných miest.
+     */
+    public function createTeachers()
+    {
+        return $this->form(true);
+    }
+
+    private function form(bool $forTeachers)
+    {
+        $capacity = Capacity::summary();
+
         return Inertia::render('Registration/Create', [
             'noteMax'    => Guest::NOTE_MAX_LENGTH,
             'allergens'  => Guest::allergenOptions(),
             'paymentInfo' => config('ples.payment_info'),
             // null = sála ešte nie je nastavená, limit neplatí.
-            'freeSeats'   => Capacity::free(),
+            'freeSeats'    => $capacity['free'],
+            // Rezervované stoličky, na ktoré ešte môžu prísť vyučujúci.
+            'teacherSeats' => $capacity['blocked_free'],
+            'forTeachers'  => $forTeachers,
         ]);
     }
 
     public function store(Request $request)
+    {
+        return $this->register($request, false);
+    }
+
+    public function storeTeachers(Request $request)
+    {
+        return $this->register($request, true);
+    }
+
+    private function register(Request $request, bool $forTeachers)
     {
         $validated = $request->validate([
             'guests'                        => 'required|array|min:1',
@@ -40,13 +69,19 @@ class RegistrationController extends Controller
             'guests.*.allergen_ids.*'       => 'integer|between:1,14',
             'guests.*.is_vegan'             => 'nullable|boolean',
             'guests.*.is_vegetarian'        => 'nullable|boolean',
+            'guests.*.is_teacher'           => 'nullable|boolean',
             'guests.*.allergen_note'        => 'nullable|string|max:' . Guest::NOTE_MAX_LENGTH,
             'guests.*.note'                 => 'nullable|string|max:' . Guest::NOTE_MAX_LENGTH,
         ], [
             'guests.*.name.required' => 'Zadajte meno a priezvisko hosťa.',
             'guests.*.name.regex'    => 'Zadajte meno aj priezvisko (napr. Jana Nováková).',
-            'guests.0.email.required' => 'Zadajte e-mail kontaktnej osoby – pošleme naň potvrdenie rezervácie.',
+            'guests.0.email.required' => 'Zadajte e-mail kontaktnej osoby.',
         ]);
+
+        // Z formulára pre učiteľov sú učitelia všetci, vo verejnom si to hosť zaškrtne sám.
+        foreach ($validated['guests'] as $index => $guestData) {
+            $validated['guests'][$index]['is_teacher'] = $forTeachers || ! empty($guestData['is_teacher']);
+        }
 
         // Vegán a vegetarián sa vylučujú – formulár ponúka len jednu voľbu.
         foreach ($validated['guests'] as $index => $guestData) {
@@ -63,8 +98,10 @@ class RegistrationController extends Controller
             // Ak sa celá skupina nezmestí, ide celá medzi náhradníkov – nedelí sa.
             // Formulár na to upozorní vopred; tu sa to rozhodne s istotou pod zámkom.
             Capacity::lock();
-            $free = Capacity::free();
-            $waitlisted = $free !== null && count($validated['guests']) > $free;
+            // Vyučujúci berú najprv z rezervovaných stoličiek, až potom z verejných.
+            $count = count($validated['guests']);
+            $teachers = count(array_filter($validated['guests'], fn ($g) => $g['is_teacher']));
+            $waitlisted = ! Capacity::fits($count - $teachers, $teachers);
 
             // Číslo sa odvádza od ID, nie od počtu záznamov. Pri počte by po
             // zmazaní rezervácie dostal ďalší hosť už obsadené číslo a unikátny
@@ -89,6 +126,7 @@ class RegistrationController extends Controller
                     'is_vegetarian' => $guestData['is_vegetarian'] ?? false,
                     'allergen_note' => $guestData['allergen_note'] ?? null,
                     'note'          => $guestData['note'] ?? null,
+                    'is_teacher'    => $guestData['is_teacher'],
                 ]);
             }
 

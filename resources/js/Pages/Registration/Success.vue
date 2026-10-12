@@ -65,7 +65,8 @@ defineProps({
                 </p>
             </div>
 
-            <div class="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-6 sm:p-8 border border-gray-100 dark:border-gray-700 mb-8 max-w-md mx-auto text-left shadow-sm">
+            <!-- Náhradník zatiaľ neplatí, takže preňho tu nie je čo ukázať. -->
+            <div v-if="!waitlisted" class="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-6 sm:p-8 border border-gray-100 dark:border-gray-700 mb-8 max-w-md mx-auto text-left shadow-sm">
                 <h3 class="font-semibold text-gray-900 dark:text-white text-lg mb-4 flex items-center">
                     <svg class="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     Dôležité informácie
@@ -73,14 +74,6 @@ defineProps({
                 
                 <ul class="space-y-4">
                     <li class="flex items-start">
-                        <div class="flex-shrink-0 mt-1">
-                            <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
-                        </div>
-                        <p class="ml-3 text-sm text-gray-600 dark:text-gray-400">
-                            Potvrdenie s číslom rezervácie sme poslali na e-mail kontaktnej osoby.
-                        </p>
-                    </li>
-                    <li v-if="!waitlisted" class="flex items-start">
                         <div class="flex-shrink-0 mt-1">
                             <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
                         </div>

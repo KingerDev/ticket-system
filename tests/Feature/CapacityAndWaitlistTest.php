@@ -68,7 +68,116 @@ class CapacityAndWaitlistTest extends TestCase
         $this->reservation([['name' => 'Eva Krátka', 'cancelled_at' => now()]]);
         $this->reservation([['name' => 'Ján Veľký']], ['waitlisted_at' => now()]);
 
-        $this->assertSame(['total' => 8, 'blocked' => 2, 'taken' => 2, 'free' => 4], Capacity::summary());
+        $this->assertSame(
+            ['total' => 8, 'blocked' => 2, 'taken' => 2, 'teachers_waiting' => 0, 'blocked_free' => 2, 'free' => 4],
+            Capacity::summary(),
+        );
+    }
+
+    // --- učitelia ----------------------------------------------------------
+
+    public function test_ucitel_bez_miesta_neuberie_z_verejnych_miest(): void
+    {
+        $table = $this->smallHall(8);
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 1]);
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 2]);
+        $this->reservation([['name' => 'Jana Nováková', 'is_teacher' => true], ['name' => 'Peter Malý']]);
+
+        $summary = Capacity::summary();
+        $this->assertSame(5, $summary['free']);
+        $this->assertSame(1, $summary['teachers_waiting']);
+        $this->assertSame(1, $summary['blocked_free']);
+    }
+
+    public function test_ucitelia_nad_pocet_rezervovanych_beru_verejne_miesta(): void
+    {
+        $table = $this->smallHall(8);
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 1]);
+        $this->reservation([['name' => 'Jana Nováková', 'is_teacher' => true], ['name' => 'Peter Malý', 'is_teacher' => true]]);
+
+        $this->assertSame(6, Capacity::free());
+        $this->assertSame(0, Capacity::summary()['blocked_free']);
+    }
+
+    public function test_usadeny_ucitel_na_rezervovanom_mieste_nemeni_verejne_miesta(): void
+    {
+        $table = $this->smallHall(8);
+        $this->actingAs($this->admin());
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 1, 'label' => 'Učiteľ']);
+        $registration = $this->reservation([['name' => 'Jana Nováková', 'is_teacher' => true]]);
+        $this->assertSame(7, Capacity::free());
+
+        $this->post(route('admin.registrations.assign', $registration->id), [
+            'guest_id' => $registration->guests->first()->id, 'table_id' => $table->id, 'seat_number' => 1, 'use_blocked_seat' => true,
+        ])->assertSessionHas('success');
+
+        $this->assertSame(7, Capacity::free());
+    }
+
+    public function test_formular_pre_ucitelov_oznaci_hosti_ako_ucitelov(): void
+    {
+        $table = $this->smallHall(2);
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 1]);
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 2]);
+        // Verejnosti nezostalo nič, učitelia sa však zmestia na rezervované stoličky.
+        $this->assertSame(0, Capacity::free());
+
+        $this->get(route('register.teachers'))->assertInertia(fn ($page) => $page
+            ->where('forTeachers', true)
+            ->where('freeSeats', 0)
+            ->where('teacherSeats', 2));
+
+        $this->post(route('register.teachers.store'), ['guests' => $this->guests(2)])->assertSessionHasNoErrors();
+
+        $registration = Registration::first();
+        $this->assertNull($registration->waitlisted_at);
+        $this->assertTrue($registration->guests->every(fn (Guest $g) => $g->is_teacher));
+    }
+
+    public function test_verejny_formular_ucitela_neoznaci(): void
+    {
+        $this->register(1)->assertSessionHasNoErrors();
+
+        $this->assertFalse(Guest::first()->is_teacher);
+    }
+
+    public function test_vo_verejnom_formulari_sa_vyucujuci_zaskrtne_sam(): void
+    {
+        $table = $this->smallHall(2);
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 1]);
+        $this->reservation([['name' => 'Peter Malý']]);
+        $this->assertSame(0, Capacity::free());
+
+        $guests = $this->guests(1);
+        $guests[0]['is_teacher'] = true;
+        $this->post(route('register.store'), ['guests' => $guests])->assertSessionHasNoErrors();
+
+        $registration = Registration::latest('id')->first();
+        $this->assertNull($registration->waitlisted_at);
+        $this->assertTrue($registration->guests->first()->is_teacher);
+    }
+
+    public function test_bez_zaskrtnutia_ide_host_do_plnej_saly_medzi_nahradnikov(): void
+    {
+        $table = $this->smallHall(2);
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 1]);
+        $this->reservation([['name' => 'Peter Malý']]);
+
+        $this->register(1)->assertSessionHasNoErrors();
+
+        $this->assertNotNull(Registration::latest('id')->first()->waitlisted_at);
+    }
+
+    public function test_admin_rychlo_oznaci_ucitela(): void
+    {
+        $this->actingAs($this->admin());
+        $guest = $this->reservation([['name' => 'Jana Nováková']])->guests->first();
+
+        $this->post(route('admin.guests.toggle_teacher', $guest->id))->assertSessionHas('success');
+        $this->assertTrue($guest->fresh()->is_teacher);
+
+        $this->post(route('admin.guests.toggle_teacher', $guest->id))->assertSessionHas('success');
+        $this->assertFalse($guest->fresh()->is_teacher);
     }
 
     public function test_formular_dostane_pocet_volnych_miest(): void

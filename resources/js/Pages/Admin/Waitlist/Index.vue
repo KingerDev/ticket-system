@@ -60,6 +60,7 @@ const hostiLabel = (n) => (n === 1 ? '1 hosť' : n < 5 ? `${n} hostia` : `${n} h
                     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 shadow-sm">
                         <div class="text-3xl font-black text-purple-600 dark:text-purple-400">{{ capacity.blocked }}</div>
                         <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Rezervované organizátormi</div>
+                        <div v-if="capacity.teachers_waiting" class="text-xs text-purple-600 dark:text-purple-400 mt-0.5">učitelia bez miesta: {{ capacity.teachers_waiting }}</div>
                     </div>
                     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 shadow-sm">
                         <div class="text-3xl font-black text-gray-700 dark:text-gray-200">{{ capacity.total }}</div>

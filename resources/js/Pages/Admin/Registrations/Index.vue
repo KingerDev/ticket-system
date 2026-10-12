@@ -25,6 +25,11 @@ watch(search, (value) => {
 });
 
 const paidGuest = ref(null);
+
+// Rýchle označenie učiteľa – učiteľ bez miesta neuberá z verejných miest.
+const toggleTeacher = (guest) => {
+    router.post(route('admin.guests.toggle_teacher', guest.id), {}, { preserveScroll: true, preserveState: true });
+};
 </script>
 
 <template>
@@ -75,7 +80,15 @@ const paidGuest = ref(null);
                                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ guest.name }}
                                     <span v-if="guest.cancelled_at" class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Stornovaný</span>
                                     <span v-else-if="guest.registration?.waitlisted_at" class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Náhradník</span></span>
-                                            <span v-if="guest.is_teacher" class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">Učiteľ</span>
+                                            <label class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer select-none"
+                                                :class="guest.is_teacher
+                                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                                                    : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                                                :title="guest.is_teacher ? 'Zrušiť označenie učiteľa' : 'Označiť ako učiteľa'">
+                                                <input type="checkbox" :checked="guest.is_teacher" @change="toggleTeacher(guest)"
+                                                    class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:bg-gray-900 dark:border-gray-700 w-3.5 h-3.5" />
+                                                Učiteľ
+                                            </label>
                                         </div>
                                     </td>
 

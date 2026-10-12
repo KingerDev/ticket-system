@@ -274,7 +274,7 @@ const getBlockForSeat = (table, seatNum) => {
                 <div>
                     <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Interaktívna Mapa Sály</h2>
                     <p v-if="capacity && capacity.total" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Stoličiek {{ capacity.total }} · rezervované organizátormi {{ capacity.blocked }} ·
+                        Stoličiek {{ capacity.total }} · rezervované organizátormi {{ capacity.blocked }}<template v-if="capacity.teachers_waiting"> (učitelia bez miesta {{ capacity.teachers_waiting }})</template> ·
                         hostia {{ capacity.taken }} · <strong class="text-gray-700 dark:text-gray-200">voľné pre verejnosť {{ capacity.free }}</strong>
                     </p>
                 </div>

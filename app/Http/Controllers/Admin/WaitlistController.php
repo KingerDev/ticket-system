@@ -54,10 +54,12 @@ class WaitlistController extends Controller
                 return ['error', "Rezervácia {$registration->reservation_number} nie je medzi náhradníkmi."];
             }
 
-            $count = $registration->guests->whereNull('cancelled_at')->count();
+            $active = $registration->guests->whereNull('cancelled_at');
+            $count = $active->count();
+            $teachers = $active->where('is_teacher', true)->count();
             $free = Capacity::free();
 
-            if ($free !== null && $count > $free) {
+            if (! Capacity::fits($count - $teachers, $teachers)) {
                 return ['error', sprintf(
                     'Rezervácia %s má %d %s, voľných miest je však len %d. Uvoľnite miesto (napr. zrušte rezerváciu stoličky) a skúste znova.',
                     $registration->reservation_number,

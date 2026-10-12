@@ -13,7 +13,15 @@ const props = defineProps({
     paymentInfo: { type: String, default: null },
     // Voľné miesta pre verejnosť; null = sála ešte nie je nastavená, bez limitu.
     freeSeats: { type: Number, default: null },
+    // Rezervované stoličky, ktoré ešte zostávajú pre vyučujúcich.
+    teacherSeats: { type: Number, default: 0 },
+    // Samostatný formulár pre učiteľov – všetci hostia z neho sú učitelia.
+    forTeachers: { type: Boolean, default: false },
 });
+
+const title = props.forTeachers
+    ? 'Registrácia učiteľov na Beánie EF UMB 2026'
+    : 'Registrácia na Beánie EF UMB 2026';
 
 const newGuest = () => ({
     name: '',
@@ -21,6 +29,7 @@ const newGuest = () => ({
     allergen_ids: [],
     is_vegan: false,
     is_vegetarian: false,
+    is_teacher: props.forTeachers,
     allergen_note: '',
     note: '',
 });
@@ -62,7 +71,7 @@ const validateGuests = () => {
         }
 
         if (email === '') {
-            if (index === 0) emails[index] = 'Zadajte e-mail – pošleme naň potvrdenie rezervácie.';
+            if (index === 0) emails[index] = 'Zadajte e-mail kontaktnej osoby.';
         } else if (!EMAIL_RE.test(email)) {
             emails[index] = 'Zadajte celú e-mailovú adresu (napr. jana.novakova@gmail.com).';
         }
@@ -110,11 +119,19 @@ const seatsLabel = (n) => (n === 1 ? '1 voľné miesto' : n >= 2 && n <= 4 ? `${
 // Pri menej ako 30 miestach dáme vedieť, že dochádzajú.
 const LOW_SEATS = 30;
 const hasLimit = computed(() => props.freeSeats !== null);
-const soldOut = computed(() => hasLimit.value && props.freeSeats === 0);
-const seatsLow = computed(() => hasLimit.value && props.freeSeats > 0 && props.freeSeats <= LOW_SEATS);
+// Vo formulári pre učiteľov sa ukazujú aj rezervované stoličky – sú pre nich.
+const shownSeats = computed(() => props.forTeachers ? props.freeSeats + props.teacherSeats : props.freeSeats);
+const soldOut = computed(() => hasLimit.value && shownSeats.value === 0);
+const seatsLow = computed(() => hasLimit.value && shownSeats.value > 0 && shownSeats.value <= LOW_SEATS);
 
 // Celá skupina sa nezmestí → pôjde celá medzi náhradníkov (nedelí sa).
-const willBeWaitlisted = computed(() => hasLimit.value && form.guests.length > props.freeSeats);
+// Vyučujúci berú najprv z rezervovaných stoličiek, rovnako ako na serveri.
+const willBeWaitlisted = computed(() => {
+    if (!hasLimit.value) return false;
+    const teachers = form.guests.filter(g => g.is_teacher).length;
+    const overflow = Math.max(0, teachers - props.teacherSeats);
+    return form.guests.length - teachers + overflow > props.freeSeats;
+});
 
 const guestCountLabel = computed(() =>
     form.guests.length === 1 ? '1 hosťa' : `${form.guests.length} hostí`
@@ -129,19 +146,22 @@ const hasErrors = computed(() =>
 const submit = () => {
     if (!validateGuests()) return;
 
-    form.post(route('register.store'));
+    form.post(route(props.forTeachers ? 'register.teachers.store' : 'register.store'));
 };
 </script>
 
 <template>
-    <Head title="Registrácia na Beánie EF UMB 2026" />
+    <Head :title="title" />
 
     <div class="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div class="max-w-3xl w-full space-y-8 bg-white dark:bg-gray-800 px-4 py-8 sm:p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
             <div>
                 <h2 class="text-center text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-                    Registrácia na Beánie EF UMB 2026
+                    {{ title }}
                 </h2>
+                <p v-if="forTeachers" class="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
+                    Formulár je určený pre vyučujúcich. Miesta pre vás držíme pri učiteľských stoloch.
+                </p>
                 <p class="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
                     Jednou registráciou prihlásite aj viac ľudí naraz – stačí pridať ďalšieho hosťa.
                 </p>
@@ -154,10 +174,6 @@ const submit = () => {
                     </li>
                     <li class="flex gap-3">
                         <span class="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span>
-                        <span>Na e-mail vám pošleme potvrdenie s číslom rezervácie.</span>
-                    </li>
-                    <li class="flex gap-3">
-                        <span class="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span>
                         <span>
                             Rezerváciu uhradíte <strong>v hotovosti, osobne u organizátorov</strong>
                             <template v-if="paymentInfo"> ({{ paymentInfo }})</template><template v-else> – termíny a miesto včas zverejníme</template>.
@@ -174,6 +190,9 @@ const submit = () => {
                 role="status"
             >
                 <p class="font-semibold">Všetky miesta sú už obsadené.</p>
+                <p v-if="!forTeachers && teacherSeats > 0" class="mt-1">
+                    Ak ste vyučujúci, zaškrtnite to pri svojom mene – pre vyučujúcich máme vyhradené miesta.
+                </p>
                 <p class="mt-1">
                     Registráciu môžete odoslať ako <strong>náhradník</strong>. Zatiaľ neplaťte – ak sa miesto uvoľní,
                     ozveme sa vám e-mailom.
@@ -184,7 +203,7 @@ const submit = () => {
                 class="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200"
                 role="status"
             >
-                Zostáva už len <strong>{{ seatsLabel(freeSeats) }}</strong>.
+                Zostáva už len <strong>{{ seatsLabel(shownSeats) }}</strong>.
             </div>
 
             <form @submit.prevent="submit" class="mt-8 space-y-6">
@@ -251,6 +270,12 @@ const submit = () => {
                                         @input="clearNameError(index)"
                                     />
                                     <InputError class="mt-1" :message="nameErrors[index] || form.errors[`guests.${index}.name`]" />
+                                    <!-- Vyučujúci sa rátajú do miest vyhradených pre nich, nie do verejných. -->
+                                    <label v-if="!forTeachers" class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                        <input type="checkbox" v-model="guest.is_teacher"
+                                            class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                                        Som vyučujúci/a
+                                    </label>
                                 </div>
                                 <div>
                                     <InputLabel :for="'email_' + index">
@@ -268,10 +293,6 @@ const submit = () => {
                                         :required="index === 0"
                                         @input="clearEmailError(index)"
                                     />
-                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        <template v-if="index === 0">Sem pošleme potvrdenie s číslom rezervácie.</template>
-                                        <template v-else>Vyplňte, ak má hosť dostať potvrdenie aj sám.</template>
-                                    </p>
                                     <InputError class="mt-1" :message="emailErrors[index] || form.errors[`guests.${index}.email`]" />
                                 </div>
                             </div>
@@ -394,12 +415,12 @@ const submit = () => {
                     role="alert"
                 >
                     <p class="font-semibold">
-                        Zostáva už len {{ seatsLabel(freeSeats) }}, vy prihlasujete {{ guestCountLabel }}.
+                        Zostáva už len {{ seatsLabel(shownSeats) }}, vy prihlasujete {{ guestCountLabel }}.
                     </p>
                     <p class="mt-1">
                         Ak registráciu odošlete takto, celá skupina sa zaradí medzi <strong>náhradníkov</strong>.
                         Zatiaľ neplaťte – ak sa miesto uvoľní, ozveme sa vám e-mailom.
-                        Ak chcete riadne miesto hneď, znížte počet hostí na {{ freeSeats }}.
+                        Ak chcete riadne miesto hneď, znížte počet hostí na {{ shownSeats }}.
                     </p>
                 </div>
 
