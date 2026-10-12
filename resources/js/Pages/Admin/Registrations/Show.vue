@@ -27,10 +27,14 @@ const selectedSeat = ref(null);
 // Hláška pri kliknutí na obsadené miesto – namiesto alert(), ktorý zablokuje stránku.
 const seatWarning = ref('');
 
+// Vybraná stolička je rezervovaná organizátormi – usadiť sa dá, ale s upozornením.
+const selectedBlock = ref(null);
+
 const selectGuestForAssignment = (guest) => {
     activeGuestId.value = guest.id;
     activeGuest.value = guest;
     seatWarning.value = '';
+    selectedBlock.value = null;
     if (guest.table_id && guest.seat_number) {
         selectedSeat.value = { tableId: guest.table_id, seatNum: guest.seat_number };
     } else {
@@ -45,6 +49,7 @@ const cancelAssignment = () => {
     activeGuest.value = null;
     selectedSeat.value = null;
     seatWarning.value = '';
+    selectedBlock.value = null;
 };
 
 const handleSeatSelected = ({ table, seatNum, guest, block }) => {
@@ -57,12 +62,8 @@ const handleSeatSelected = ({ table, seatNum, guest, block }) => {
         return;
     }
 
-    if (!guest && block) {
-        seatWarning.value = `Miesto ${seatNum} pri stole ${table.name} je rezervované${block.label ? ` (${block.label})` : ''}. Vyberte iné alebo zrušte rezerváciu na mape sály.`;
-        return;
-    }
-
     seatWarning.value = '';
+    selectedBlock.value = !guest && block ? { ...block, tableName: table.name } : null;
     selectedSeat.value = { tableId: table.id, seatNum: seatNum };
 };
 
@@ -73,6 +74,7 @@ const saveSeatAssignment = () => {
         guest_id: activeGuestId.value,
         table_id: selectedSeat.value.tableId,
         seat_number: selectedSeat.value.seatNum,
+        use_blocked_seat: !!selectedBlock.value,
     }, {
         preserveScroll: true,
         onSuccess: () => {
@@ -428,13 +430,18 @@ const closeTicketModal = () => {
                             <span class="block text-sm text-blue-200">Vyberte voľné miesto na mape pre hosťa:</span>
                             <span class="text-xl font-bold">{{ activeGuest.name }}</span>
                             <span v-if="seatWarning" role="alert" class="block mt-1 text-sm font-semibold text-amber-200">{{ seatWarning }}</span>
+                            <div v-else-if="selectedBlock" role="alert" class="mt-2 px-3 py-2 rounded-md bg-amber-100 text-amber-900 text-sm">
+                                <span class="font-semibold">Pozor: miesto {{ selectedBlock.seat_number }} pri stole {{ selectedBlock.tableName }} je rezervované organizátormi.</span>
+                                <span v-if="selectedBlock.label" class="block mt-0.5">Poznámka: {{ selectedBlock.label }}</span>
+                                <span class="block mt-0.5 text-xs">Po potvrdení sa rezervácia miesta zruší a sadne tu {{ activeGuest.name }}.</span>
+                            </div>
                         </div>
                         <div class="flex space-x-3">
                             <button @click="cancelAssignment" class="px-4 py-2 border border-blue-400 bg-blue-700 hover:bg-blue-800 rounded-md text-sm font-medium transition-colors">
                                 Zrušiť
                             </button>
                             <button @click="saveSeatAssignment" :disabled="!selectedSeat" class="px-6 py-2 bg-white text-blue-700 hover:bg-gray-100 rounded-md text-sm font-bold shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                Potvrdiť miesto
+                                {{ selectedBlock ? 'Napriek tomu usadiť' : 'Potvrdiť miesto' }}
                             </button>
                         </div>
                     </div>

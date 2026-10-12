@@ -216,7 +216,7 @@ class CapacityAndWaitlistTest extends TestCase
         $this->assertSame(0, SeatBlock::count());
     }
 
-    public function test_rezervovanu_stolicku_nemozno_pridelit_hostovi(): void
+    public function test_rezervovanu_stolicku_nemozno_pridelit_bez_potvrdenia(): void
     {
         $table = $this->smallHall(4);
         $this->actingAs($this->admin());
@@ -228,6 +228,25 @@ class CapacityAndWaitlistTest extends TestCase
         ])->assertSessionHas('error');
 
         $this->assertNull($registration->guests->first()->fresh()->seat_number);
+    }
+
+    public function test_na_rezervovanu_stolicku_sa_da_usadit_po_potvrdeni(): void
+    {
+        $table = $this->smallHall(4);
+        $this->actingAs($this->admin());
+        SeatBlock::create(['table_id' => $table->id, 'seat_number' => 2, 'label' => 'Učiteľ']);
+        $registration = $this->reservation([['name' => 'Jana Nováková']]);
+        $guest = $registration->guests->first();
+
+        $this->post(route('admin.registrations.assign', $registration->id), [
+            'guest_id' => $guest->id, 'table_id' => $table->id, 'seat_number' => 2, 'use_blocked_seat' => true,
+        ])->assertSessionHas('success');
+
+        $this->assertSame(2, $guest->fresh()->seat_number);
+        // Rezervácia zanikne, aby sa miesto v kapacite nepočítalo dvakrát.
+        $this->assertSame(0, SeatBlock::count());
+        $this->assertSame(1, Capacity::summary()['taken']);
+        $this->assertSame(0, Capacity::summary()['blocked']);
     }
 
     public function test_zmensenie_stola_zrusi_rezervacie_mimo_neho(): void

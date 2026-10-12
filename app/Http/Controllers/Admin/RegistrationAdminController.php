@@ -220,9 +220,12 @@ class RegistrationAdminController extends Controller
             return back()->with('error', "Rezervácia {$registration->reservation_number} je medzi náhradníkmi. Najprv ju presuňte medzi riadne.");
         }
 
+        // Na rezervovanú stoličku sa dá usadiť, ale len po potvrdení upozornenia
+        // na mape. Rezervácia potom zanikne, inak by sa miesto v kapacite
+        // počítalo dvakrát (raz ako blok, raz ako hosť).
         $block = SeatBlock::where('table_id', $request->table_id)->where('seat_number', $request->seat_number)->first();
-        if ($block) {
-            return back()->with('error', 'Toto miesto je rezervované' . ($block->label ? " ({$block->label})" : '') . '. Najprv zrušte rezerváciu na mape sály.');
+        if ($block && !$request->boolean('use_blocked_seat')) {
+            return back()->with('error', 'Toto miesto je rezervované' . ($block->label ? " ({$block->label})" : '') . '. Potvrďte usadenie na rezervované miesto na mape.');
         }
 
         // Ensure seat is free
@@ -234,20 +237,23 @@ class RegistrationAdminController extends Controller
             return back()->with('error', 'Toto miesto je už obsadené.');
         }
 
+        $block?->delete();
+
         $guest->update([
             'table_id' => $request->table_id,
             'seat_number' => $request->seat_number,
         ]);
 
         $table = Table::find($request->table_id);
+        $blockNote = $block ? ' namiesto rezervácie' . ($block->label ? " ({$block->label})" : '') : '';
 
         ActivityLog::record(
             'guest.seat_assigned',
-            "Pridelil hosťovi {$guest->name} miesto {$request->seat_number} pri stole {$table?->name}",
+            "Pridelil hosťovi {$guest->name} miesto {$request->seat_number} pri stole {$table?->name}{$blockNote}",
             $guest,
         );
 
-        return back()->with('success', "Miesto pre {$guest->name} bolo úspešne pridelené.");
+        return back()->with('success', "Miesto pre {$guest->name} bolo úspešne pridelené{$blockNote}.");
     }
 
     public function togglePaid($id)
