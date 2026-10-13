@@ -9,7 +9,9 @@ use App\Models\Registration;
 use App\Models\SeatBlock;
 use App\Models\Table;
 use App\Rules\DeliverableEmail;
+use App\Support\Capacity;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
 
@@ -62,7 +64,7 @@ class RegistrationAdminController extends Controller
      */
     public function updateGuest(Request $request, $id)
     {
-        $guest = Guest::findOrFail($id);
+        $guest = Guest::with('registration')->findOrFail($id);
 
         $validated = $request->validate([
             'name'           => ['required', 'string', 'max:255', Guest::FULL_NAME_REGEX],
@@ -84,16 +86,31 @@ class RegistrationAdminController extends Controller
             'is_teacher', 'allergen_note', 'note',
         ]);
 
-        $guest->update([
-            'name'          => $validated['name'],
-            'email'         => $validated['email'] ?? null,
-            'allergen_ids'  => Guest::normalizeAllergenIds($validated['allergen_ids'] ?? []),
-            'is_vegan'      => $validated['is_vegan'] ?? false,
-            'is_vegetarian' => $validated['is_vegetarian'] ?? false,
-            'is_teacher'    => $validated['is_teacher'] ?? false,
-            'allergen_note' => $validated['allergen_note'] ?? null,
-            'note'          => $validated['note'] ?? null,
-        ]);
+        // Zmena „učiteľ“ presúva hosťa medzi rezervovanými a verejnými miestami.
+        $error = DB::transaction(function () use ($guest, $validated) {
+            Capacity::lock();
+
+            if ($error = Capacity::teacherChangeError($guest, $validated['is_teacher'] ?? false)) {
+                return $error;
+            }
+
+            $guest->update([
+                'name'          => $validated['name'],
+                'email'         => $validated['email'] ?? null,
+                'allergen_ids'  => Guest::normalizeAllergenIds($validated['allergen_ids'] ?? []),
+                'is_vegan'      => $validated['is_vegan'] ?? false,
+                'is_vegetarian' => $validated['is_vegetarian'] ?? false,
+                'is_teacher'    => $validated['is_teacher'] ?? false,
+                'allergen_note' => $validated['allergen_note'] ?? null,
+                'note'          => $validated['note'] ?? null,
+            ]);
+
+            return null;
+        });
+
+        if ($error) {
+            return back()->with('error', $error);
+        }
 
         ActivityLog::record(
             'guest.updated',
@@ -262,8 +279,23 @@ class RegistrationAdminController extends Controller
      */
     public function toggleTeacher($id)
     {
-        $guest = Guest::findOrFail($id);
-        $guest->update(['is_teacher' => ! $guest->is_teacher]);
+        $guest = Guest::with('registration')->findOrFail($id);
+
+        $error = DB::transaction(function () use ($guest) {
+            Capacity::lock();
+
+            if ($error = Capacity::teacherChangeError($guest, ! $guest->is_teacher)) {
+                return $error;
+            }
+
+            $guest->update(['is_teacher' => ! $guest->is_teacher]);
+
+            return null;
+        });
+
+        if ($error) {
+            return back()->with('error', $error);
+        }
 
         ActivityLog::record(
             'guest.teacher_toggled',

@@ -13,8 +13,10 @@ const props = defineProps({
     paymentInfo: { type: String, default: null },
     // Voľné miesta pre verejnosť; null = sála ešte nie je nastavená, bez limitu.
     freeSeats: { type: Number, default: null },
-    // Rezervované stoličky, ktoré ešte zostávajú pre vyučujúcich.
-    teacherSeats: { type: Number, default: 0 },
+    // Či ešte zostáva rezervované miesto pre vyučujúcich. Počet zámerne nedostávame.
+    teacherSeatsLeft: { type: Boolean, default: true },
+    // Kontakt na organizátorov, keď sú miesta pre vyučujúcich obsadené.
+    contactEmail: { type: String, default: null },
     // Samostatný formulár pre učiteľov – všetci hostia z neho sú učitelia.
     forTeachers: { type: Boolean, default: false },
 });
@@ -119,19 +121,21 @@ const seatsLabel = (n) => (n === 1 ? '1 voľné miesto' : n >= 2 && n <= 4 ? `${
 // Pri menej ako 30 miestach dáme vedieť, že dochádzajú.
 const LOW_SEATS = 30;
 const hasLimit = computed(() => props.freeSeats !== null);
-// Vo formulári pre učiteľov sa ukazujú aj rezervované stoličky – sú pre nich.
-const shownSeats = computed(() => props.forTeachers ? props.freeSeats + props.teacherSeats : props.freeSeats);
-const soldOut = computed(() => hasLimit.value && shownSeats.value === 0);
-const seatsLow = computed(() => hasLimit.value && shownSeats.value > 0 && shownSeats.value <= LOW_SEATS);
+// Počty voľných miest ukazujeme len verejnosti. Vyučujúci sedia na
+// rezervovaných stoličkách a ich počet sa vo formulári nezobrazuje.
+const soldOut = computed(() => !props.forTeachers && hasLimit.value && props.freeSeats === 0);
+const seatsLow = computed(() => !props.forTeachers && hasLimit.value && props.freeSeats > 0 && props.freeSeats <= LOW_SEATS);
+
+// Rezervované miesta pre vyučujúcich sú obsadené – registrovať sa nedá, len kontaktovať nás.
+const teachersClosed = computed(() => hasLimit.value && !props.teacherSeatsLeft);
+const teachersBlocked = computed(() => teachersClosed.value && form.guests.some(g => g.is_teacher));
 
 // Celá skupina sa nezmestí → pôjde celá medzi náhradníkov (nedelí sa).
-// Vyučujúci berú najprv z rezervovaných stoličiek, rovnako ako na serveri.
-const willBeWaitlisted = computed(() => {
-    if (!hasLimit.value) return false;
-    const teachers = form.guests.filter(g => g.is_teacher).length;
-    const overflow = Math.max(0, teachers - props.teacherSeats);
-    return form.guests.length - teachers + overflow > props.freeSeats;
-});
+// Vyučujúci na verejné miesta nesiahajú, rovnako ako na serveri.
+const regularCount = computed(() => form.guests.filter(g => !g.is_teacher).length);
+const willBeWaitlisted = computed(() =>
+    hasLimit.value && !teachersBlocked.value && regularCount.value > props.freeSeats
+);
 
 const guestCountLabel = computed(() =>
     form.guests.length === 1 ? '1 hosťa' : `${form.guests.length} hostí`
@@ -162,6 +166,7 @@ const submit = () => {
                 <p v-if="forTeachers" class="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
                     Formulár je určený pre vyučujúcich. Miesta pre vás držíme pri učiteľských stoloch.
                 </p>
+                <template v-if="!(forTeachers && teachersClosed)">
                 <p class="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
                     Jednou registráciou prihlásite aj viac ľudí naraz – stačí pridať ďalšieho hosťa.
                 </p>
@@ -181,6 +186,7 @@ const submit = () => {
                         </span>
                     </li>
                 </ol>
+                </template>
             </div>
 
             <!-- Kapacita: vopred povedať, koľko miest zostáva, nech nikoho neprekvapí zoznam náhradníkov. -->
@@ -190,7 +196,7 @@ const submit = () => {
                 role="status"
             >
                 <p class="font-semibold">Všetky miesta sú už obsadené.</p>
-                <p v-if="!forTeachers && teacherSeats > 0" class="mt-1">
+                <p v-if="teacherSeatsLeft" class="mt-1">
                     Ak ste vyučujúci, zaškrtnite to pri svojom mene – pre vyučujúcich máme vyhradené miesta.
                 </p>
                 <p class="mt-1">
@@ -203,10 +209,23 @@ const submit = () => {
                 class="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200"
                 role="status"
             >
-                Zostáva už len <strong>{{ seatsLabel(shownSeats) }}</strong>.
+                Zostáva už len <strong>{{ seatsLabel(freeSeats) }}</strong>.
             </div>
 
-            <form @submit.prevent="submit" class="mt-8 space-y-6">
+            <!-- Formulár pre učiteľov bez rezervovaných miest: namiesto registrácie kontakt. -->
+            <div
+                v-if="forTeachers && teachersClosed"
+                class="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-900/20 p-5 text-sm text-purple-900 dark:text-purple-200"
+                role="status"
+            >
+                <p class="font-semibold">Miesta pre vyučujúcich sú už obsadené.</p>
+                <p class="mt-1">
+                    Ak sa chcete zúčastniť, kontaktujte nás, prosím<template v-if="contactEmail">
+                    na <a :href="`mailto:${contactEmail}`" class="font-semibold underline">{{ contactEmail }}</a></template> – dohodneme sa.
+                </p>
+            </div>
+
+            <form v-else @submit.prevent="submit" class="mt-8 space-y-6">
                 <!-- Súhrn chýb: pri dlhšom formulári nie je vidieť, kde presne je problém. -->
                 <div
                     v-if="hasErrors"
@@ -410,25 +429,38 @@ const submit = () => {
                 <InputError class="text-center" :message="form.errors.guests" />
 
                 <div
+                    v-if="teachersBlocked"
+                    class="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-900/20 p-4 text-sm text-purple-900 dark:text-purple-200"
+                    role="alert"
+                >
+                    <p class="font-semibold">Miesta pre vyučujúcich sú už obsadené.</p>
+                    <p class="mt-1">
+                        Kontaktujte nás, prosím<template v-if="contactEmail">
+                        na <a :href="`mailto:${contactEmail}`" class="font-semibold underline">{{ contactEmail }}</a></template> – dohodneme sa.
+                        Ak nie ste vyučujúci, zrušte zaškrtnutie „Som vyučujúci/a“.
+                    </p>
+                </div>
+
+                <div
                     v-if="willBeWaitlisted && !soldOut"
                     class="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200"
                     role="alert"
                 >
                     <p class="font-semibold">
-                        Zostáva už len {{ seatsLabel(shownSeats) }}, vy prihlasujete {{ guestCountLabel }}.
+                        Zostáva už len {{ seatsLabel(freeSeats) }}, vy prihlasujete {{ guestCountLabel }}.
                     </p>
                     <p class="mt-1">
                         Ak registráciu odošlete takto, celá skupina sa zaradí medzi <strong>náhradníkov</strong>.
                         Zatiaľ neplaťte – ak sa miesto uvoľní, ozveme sa vám e-mailom.
-                        Ak chcete riadne miesto hneď, znížte počet hostí na {{ shownSeats }}.
+                        Ak chcete riadne miesto hneď, znížte počet hostí na {{ freeSeats + form.guests.length - regularCount }}.
                     </p>
                 </div>
 
                 <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <PrimaryButton
                         class="w-full justify-center py-4 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-md hover:shadow-lg"
-                        :class="{ 'opacity-25': form.processing }"
-                        :disabled="form.processing"
+                        :class="{ 'opacity-25': form.processing || teachersBlocked }"
+                        :disabled="form.processing || teachersBlocked"
                     >
                         <span v-if="form.processing">Odosielam…</span>
                         <span v-else-if="willBeWaitlisted">Odoslať ako náhradník pre {{ guestCountLabel }}</span>

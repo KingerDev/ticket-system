@@ -59,6 +59,10 @@ class WaitlistController extends Controller
             $teachers = $active->where('is_teacher', true)->count();
             $free = Capacity::free();
 
+            if (! Capacity::teachersFit($teachers)) {
+                return ['error', "Rezervácia {$registration->reservation_number} má učiteľov, na ktorých už nezostali rezervované miesta. Najprv rezervujte ďalšie stoličky na mape."];
+            }
+
             if (! Capacity::fits($count - $teachers, $teachers)) {
                 return ['error', sprintf(
                     'Rezervácia %s má %d %s, voľných miest je však len %d. Uvoľnite miesto (napr. zrušte rezerváciu stoličky) a skúste znova.',

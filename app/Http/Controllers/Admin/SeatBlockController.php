@@ -94,7 +94,25 @@ class SeatBlockController extends Controller
     public function destroy(SeatBlock $seatBlock)
     {
         $table = $seatBlock->table;
-        $seatBlock->delete();
+
+        // Učitelia bez miesta sedia v počte na rezervovaných stoličkách.
+        // Keby sme zrušili tú poslednú, učiteľ by nemal kde sedieť.
+        $error = DB::transaction(function () use ($seatBlock) {
+            Capacity::lock();
+
+            $summary = Capacity::summary();
+            if ($summary['blocked_free'] === 0 && $summary['teachers_waiting'] > 0) {
+                return 'Túto rezerváciu nemožno zrušiť – všetky rezervované miesta už patria učiteľom bez prideleného miesta. Najprv niektorého učiteľa usaďte alebo zrušte jeho označenie.';
+            }
+
+            $seatBlock->delete();
+
+            return null;
+        });
+
+        if ($error) {
+            return back()->with('error', $error);
+        }
 
         ActivityLog::record(
             'seat.unblocked',

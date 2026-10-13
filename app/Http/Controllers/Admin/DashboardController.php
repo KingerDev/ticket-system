@@ -44,6 +44,8 @@ class DashboardController extends Controller
                 'overdueCount' => $overdueCount,
                 'cancelledCount' => $cancelledCount,
                 'blockedSeats' => $capacity['blocked'],
+                'blockedFree' => $capacity['blocked_free'],
+                'teachersWaiting' => $capacity['teachers_waiting'],
                 'freeSeats' => $capacity['free'],
                 'waitlistedGuests' => $waitlistedGuests,
             ]

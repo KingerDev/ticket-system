@@ -213,7 +213,9 @@ class ReminderController extends Controller
         });
 
         if ($plna) {
-            return back()->with('error', "Hosťa {$guest->name} nemožno obnoviť – sála je plná. Najprv uvoľnite miesto (napr. zrušte rezerváciu stoličky).");
+            return back()->with('error', $guest->is_teacher
+                ? "Hosťa {$guest->name} nemožno obnoviť – rezervované miesta pre učiteľov sú obsadené. Najprv rezervujte ďalšiu stoličku na mape."
+                : "Hosťa {$guest->name} nemožno obnoviť – sála je plná. Najprv uvoľnite miesto (napr. zrušte rezerváciu stoličky).");
         }
 
         ActivityLog::record(

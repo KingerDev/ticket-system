@@ -40,8 +40,10 @@ class RegistrationController extends Controller
             'paymentInfo' => config('ples.payment_info'),
             // null = sála ešte nie je nastavená, limit neplatí.
             'freeSeats'    => $capacity['free'],
-            // Rezervované stoličky, na ktoré ešte môžu prísť vyučujúci.
-            'teacherSeats' => $capacity['blocked_free'],
+            // Len či ešte je rezervované miesto pre vyučujúcich – počet
+            // zámerne neposielame, vo formulári sa nemá dať zistiť.
+            'teacherSeatsLeft' => $capacity['free'] === null || $capacity['blocked_free'] > 0,
+            'contactEmail' => Capacity::contactEmail(),
             'forTeachers'  => $forTeachers,
         ]);
     }
@@ -98,9 +100,15 @@ class RegistrationController extends Controller
             // Ak sa celá skupina nezmestí, ide celá medzi náhradníkov – nedelí sa.
             // Formulár na to upozorní vopred; tu sa to rozhodne s istotou pod zámkom.
             Capacity::lock();
-            // Vyučujúci berú najprv z rezervovaných stoličiek, až potom z verejných.
             $count = count($validated['guests']);
             $teachers = count(array_filter($validated['guests'], fn ($g) => $g['is_teacher']));
+
+            // Vyučujúci len na rezervované stoličky. Keď dôjdu, nejdú medzi
+            // náhradníkov ani na verejné miesta – majú sa ozvať organizátorom.
+            if ($teachers > 0 && ! Capacity::teachersFit($teachers)) {
+                throw ValidationException::withMessages(['guests' => self::teachersFullMessage()]);
+            }
+
             $waitlisted = ! Capacity::fits($count - $teachers, $teachers);
 
             // Číslo sa odvádza od ID, nie od počtu záznamov. Pri počte by po
@@ -149,6 +157,14 @@ class RegistrationController extends Controller
         return redirect()->route('register.success')
             ->with('reservation_number', $registration->reservation_number)
             ->with('waitlisted', $registration->isWaitlisted());
+    }
+
+    private static function teachersFullMessage(): string
+    {
+        $contact = Capacity::contactEmail();
+
+        return 'Miesta pre vyučujúcich sú už obsadené. Kontaktujte nás, prosím'
+            . ($contact ? " na {$contact}" : '') . ', dohodneme sa.';
     }
 
     public function success()

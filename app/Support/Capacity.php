@@ -15,8 +15,9 @@ use App\Models\Table;
  *
  * Učitelia bez prideleného miesta sa rátajú do stoličiek zablokovaných
  * organizátormi (tie sú pre nich), takže verejnosti miesto neuberajú.
- * Až keď ich je viac než blokov, zvyšok berie z verejných miest. Po usadení
- * na rezervovanú stoličku blok zanikne a učiteľ sa ráta ako bežný hosť.
+ * Z verejných miest nikdy neberú – keď rezervované stoličky dôjdu, ďalší
+ * učiteľ sa nezaregistruje a má kontaktovať organizátorov. Po usadení na
+ * rezervovanú stoličku blok zanikne a učiteľ sa ráta ako bežný hosť.
  */
 final class Capacity
 {
@@ -49,8 +50,8 @@ final class Capacity
     }
 
     /**
-     * Zmestí sa skupina? Učitelia berú najprv z rezervovaných stoličiek,
-     * až potom z verejných miest.
+     * Zmestí sa skupina? Učitelia len na rezervované stoličky, ostatní
+     * len na verejné miesta.
      */
     public static function fits(int $regular, int $teachers = 0): bool
     {
@@ -60,9 +61,53 @@ final class Capacity
             return true;
         }
 
-        $overflow = max(0, $teachers - $summary['blocked_free']);
+        return $teachers <= $summary['blocked_free'] && $regular <= $summary['free'];
+    }
 
-        return $regular + $overflow <= $summary['free'];
+    /** Zmestia sa učitelia na rezervované stoličky? */
+    public static function teachersFit(int $teachers): bool
+    {
+        $summary = self::summary();
+
+        return $summary['free'] === null || $teachers <= $summary['blocked_free'];
+    }
+
+    /**
+     * Prečo hosťa nemožno označiť (alebo odznačiť) ako učiteľa, alebo null.
+     *
+     * Na kapacitu to vplýva len pri riadnom hosťovi bez miesta: učiteľ potom
+     * zaberá rezervovanú stoličku, ostatní verejné miesto.
+     */
+    public static function teacherChangeError(Guest $guest, bool $isTeacher): ?string
+    {
+        if ($guest->is_teacher === $isTeacher
+            || $guest->isCancelled()
+            || $guest->table_id
+            || $guest->registration?->isWaitlisted()) {
+            return null;
+        }
+
+        $summary = self::summary();
+
+        if ($summary['free'] === null) {
+            return null;
+        }
+
+        if ($isTeacher && $summary['blocked_free'] < 1) {
+            return "{$guest->name} sa nedá označiť ako učiteľ – všetky rezervované miesta sú už obsadené. Najprv rezervujte ďalšiu stoličku na mape.";
+        }
+
+        if (! $isTeacher && $summary['free'] < 1) {
+            return "{$guest->name} sa nedá odznačiť ako učiteľ – pre verejnosť už nie je voľné miesto.";
+        }
+
+        return null;
+    }
+
+    /** Kontakt na organizátorov pre hlášky „kontaktujte nás“, alebo null. */
+    public static function contactEmail(): ?string
+    {
+        return config('ples.contact_email') ?: config('mail.reply_to.address') ?: null;
     }
 
     /**

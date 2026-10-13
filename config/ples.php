@@ -16,4 +16,17 @@ return [
 
     'payment_info' => env('PLES_PAYMENT_INFO'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kontakt na organizátorov
+    |--------------------------------------------------------------------------
+    |
+    | Ukáže sa, keď sú rezervované miesta pre učiteľov obsadené. Ak je
+    | prázdne, použije sa MAIL_REPLY_TO_ADDRESS; ak ani to, text adresu
+    | nespomenie.
+    |
+    */
+
+    'contact_email' => env('PLES_CONTACT_EMAIL'),
+
 ];

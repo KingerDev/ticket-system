@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Guest;
 use App\Models\Registration;
+use App\Models\SeatBlock;
 use App\Models\Table;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -24,6 +25,8 @@ class GuestAdministrationTest extends TestCase
 
     public function test_admin_upravi_udaje_hosta(): void
     {
+        // Učiteľ potrebuje voľnú rezervovanú stoličku.
+        SeatBlock::create(['table_id' => Table::first()->id, 'seat_number' => 1]);
         $guest = $this->reservation([[
             'name' => 'Jana Nováková', 'email' => 'stara@email.sk',
             'allergen_ids' => [1, 7], 'is_vegan' => true,
