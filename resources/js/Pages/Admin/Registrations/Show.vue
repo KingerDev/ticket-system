@@ -239,6 +239,25 @@ const promote = () => {
     });
 };
 
+// Opačný smer – riadnu rezerváciu vrátiť medzi náhradníkov. Zaplatených,
+// s lístkom alebo už vo vnútri server odmietne, tlačidlo to vopred ukáže.
+const demoting = ref(false);
+const showDemoteModal = ref(false);
+const demoteBlockers = computed(() => props.registration.guests
+    .filter(g => !g.cancelled_at && (g.paid || g.ticket_issued || g.checked_in))
+    .map(g => g.name));
+
+const demote = () => {
+    demoting.value = true;
+    router.post(route('admin.waitlist.demote', props.registration.id), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            demoting.value = false;
+            showDemoteModal.value = false;
+        },
+    });
+};
+
 const guestCountLabel = computed(() => {
     const n = props.registration.guests.length;
     if (n === 1) return 'Registrácia — 1 hosť';
@@ -297,6 +316,13 @@ const closeTicketModal = () => {
                         Upraviť kontakt
                     </button>
                     <button
+                        v-if="!isWaitlisted"
+                        @click="showDemoteModal = true"
+                        class="px-3 py-1.5 border border-amber-300 dark:border-amber-700 rounded-md text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 bg-white dark:bg-gray-800"
+                    >
+                        Presunúť medzi náhradníkov
+                    </button>
+                    <button
                         @click="showDeleteRegistrationModal = true"
                         class="px-3 py-1.5 border border-red-200 dark:border-red-900/50 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 bg-white dark:bg-gray-800"
                     >
@@ -311,7 +337,7 @@ const closeTicketModal = () => {
                     <div class="flex-1 min-w-[16rem] text-sm text-amber-800 dark:text-amber-200">
                         <p class="font-bold text-base">Náhradník</p>
                         <p class="mt-0.5">
-                            Pri registrácii už nebolo dosť voľných miest. Hostia zatiaľ neplatia a nedá sa im prideliť miesto ani vydať lístok.
+                            Na túto rezerváciu zatiaľ nie je miesto. Hostia zatiaľ neplatia a nedá sa im prideliť miesto ani vydať lístok.
                         </p>
                     </div>
                     <button
@@ -624,6 +650,42 @@ const closeTicketModal = () => {
                         {{ promoting ? 'Presúvam…' : 'Presunúť a poslať e-mail' }}
                     </button>
                 </div>
+            </div>
+        </Modal>
+
+        <!-- Potvrdenie presunu medzi náhradníkov – e-mail sa neposiela -->
+        <Modal :show="showDemoteModal" @close="showDemoteModal = false" maxWidth="md">
+            <div class="p-6">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Presunúť medzi náhradníkov</h2>
+                <template v-if="demoteBlockers.length">
+                    <p class="text-amber-700 dark:text-amber-400 mb-6">
+                        Nedá sa – zaplatené, vydaný lístok alebo zapísaný pri vstupe:
+                        <strong>{{ demoteBlockers.join(', ') }}</strong>. Najprv zrušte označenie platby.
+                    </p>
+                    <div class="flex justify-end">
+                        <button @click="showDemoteModal = false"
+                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            Zavrieť
+                        </button>
+                    </div>
+                </template>
+                <template v-else>
+                    <p class="text-gray-600 dark:text-gray-400 mb-6">
+                        Rezervácia <strong class="text-gray-900 dark:text-gray-100">{{ registration.reservation_number }}</strong>
+                        sa zaradí na koniec zoznamu náhradníkov a hostia prídu o pridelené miesta.
+                        Kontaktnej osobe sa e-mail <strong>neposiela</strong>.
+                    </p>
+                    <div class="flex justify-end space-x-3">
+                        <button @click="showDemoteModal = false"
+                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            Zrušiť
+                        </button>
+                        <button @click="demote" :disabled="demoting"
+                            class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-sm font-semibold disabled:opacity-50">
+                            {{ demoting ? 'Presúvam…' : 'Presunúť medzi náhradníkov' }}
+                        </button>
+                    </div>
+                </template>
             </div>
         </Modal>
 

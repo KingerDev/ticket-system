@@ -1,10 +1,8 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use App\Http\Controllers\RegistrationController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('register');
@@ -18,7 +16,7 @@ Route::get('/register/success', [RegistrationController::class, 'success'])->nam
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
-    
+
     // Registrations
     Route::get('/registrations', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'index'])->name('admin.registrations.index');
     Route::get('/registrations/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'show'])->name('admin.registrations.show');
@@ -41,6 +39,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     // Náhradníci a vopred rezervované stoličky
     Route::get('/waitlist', [\App\Http\Controllers\Admin\WaitlistController::class, 'index'])->name('admin.waitlist.index');
     Route::post('/waitlist/{id}/promote', [\App\Http\Controllers\Admin\WaitlistController::class, 'promote'])->name('admin.waitlist.promote');
+    Route::post('/waitlist/{id}/demote', [\App\Http\Controllers\Admin\WaitlistController::class, 'demote'])->name('admin.waitlist.demote');
     Route::post('/seat-blocks', [\App\Http\Controllers\Admin\SeatBlockController::class, 'store'])->name('admin.seat_blocks.store');
     Route::patch('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'update'])->name('admin.seat_blocks.update');
     Route::delete('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'destroy'])->name('admin.seat_blocks.destroy');

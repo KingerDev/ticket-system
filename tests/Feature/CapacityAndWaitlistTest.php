@@ -29,7 +29,7 @@ class CapacityAndWaitlistTest extends TestCase
         $names = ['Jana Nováková', 'Peter Malý', 'Eva Krátka', 'Ján Veľký', 'Mária Dlhá'];
 
         return array_map(fn ($i) => [
-            'name'  => $names[$i % count($names)],
+            'name' => $names[$i % count($names)],
             'email' => $i === 0 ? 'jana@email.sk' : '',
         ], range(0, $count - 1));
     }
@@ -400,6 +400,53 @@ class CapacityAndWaitlistTest extends TestCase
 
         $this->assertNotNull($registration->fresh()->waitlisted_at);
         Mail::assertNothingQueued();
+    }
+
+    public function test_riadnu_rezervaciu_mozno_presunut_medzi_nahradnikov(): void
+    {
+        $table = $this->smallHall(4);
+        $this->actingAs($this->admin());
+        $registration = $this->reservation([
+            ['name' => 'Jana Nováková', 'table_id' => $table->id, 'seat_number' => 1, 'payment_deadline_at' => now()->addWeek()],
+            ['name' => 'Peter Malý'],
+        ], ['promoted_at' => now()->subDay()]);
+
+        $this->post(route('admin.waitlist.demote', $registration->id))->assertSessionHas('success');
+
+        $registration->refresh();
+        $this->assertNotNull($registration->waitlisted_at);
+        $this->assertNull($registration->promoted_at);
+        $jana = $registration->guests->first();
+        $this->assertNull($jana->table_id);
+        $this->assertNull($jana->seat_number);
+        $this->assertNull($jana->payment_deadline_at);
+        $this->assertSame(4, Capacity::free());
+        Mail::assertNothingQueued();
+        $this->assertDatabaseHas('activity_logs', ['action' => 'registration.demoted']);
+    }
+
+    public function test_zaplatenu_rezervaciu_nemozno_presunut_medzi_nahradnikov(): void
+    {
+        $this->smallHall(4);
+        $this->actingAs($this->admin());
+        $registration = $this->reservation([['name' => 'Jana Nováková', 'paid' => true]]);
+
+        $this->post(route('admin.waitlist.demote', $registration->id))->assertSessionHas('error');
+
+        $this->assertNull($registration->fresh()->waitlisted_at);
+    }
+
+    public function test_nahradnika_nemozno_znova_presunut_medzi_nahradnikov(): void
+    {
+        $this->smallHall(4);
+        $this->actingAs($this->admin());
+        $since = now()->subDay()->startOfSecond();
+        $registration = $this->reservation([['name' => 'Jana Nováková']], ['waitlisted_at' => $since]);
+
+        $this->post(route('admin.waitlist.demote', $registration->id))->assertSessionHas('error');
+
+        // Poradie v zozname náhradníkov sa nemení.
+        $this->assertEquals($since, $registration->fresh()->waitlisted_at);
     }
 
     public function test_zoznam_nahradnikov_v_poradi(): void

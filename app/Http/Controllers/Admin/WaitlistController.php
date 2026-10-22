@@ -27,13 +27,13 @@ class WaitlistController extends Controller
             ->orderBy('id')
             ->get()
             ->map(fn (Registration $r) => [
-                'id'                 => $r->id,
+                'id' => $r->id,
                 'reservation_number' => $r->reservation_number,
-                'registrant_name'    => $r->registrant_name,
-                'registrant_email'   => $r->registrant_email,
-                'waitlisted_at'      => $r->waitlisted_at->format('j. n. Y H:i'),
-                'guests'             => $r->guests->pluck('name'),
-                'guest_count'        => $r->guests->count(),
+                'registrant_name' => $r->registrant_name,
+                'registrant_email' => $r->registrant_email,
+                'waitlisted_at' => $r->waitlisted_at->format('j. n. Y H:i'),
+                'guests' => $r->guests->pluck('name'),
+                'guest_count' => $r->guests->count(),
             ])
             ->values();
 
@@ -93,5 +93,55 @@ class WaitlistController extends Controller
         );
 
         return back()->with('success', "Rezervácia {$registration->reservation_number} je riadna. Kontaktnej osobe sme poslali e-mail, že môže prísť zaplatiť.");
+    }
+
+    /**
+     * Opačný smer – riadnu rezerváciu organizátori vrátia medzi náhradníkov.
+     *
+     * Hostia prídu o pridelené miesta a zaradia sa na koniec poradia.
+     * Zaplateným, s lístkom ani zapísaným pri vstupe sa to nedá – náhradník
+     * neplatí a lístok by ho pustil dnu. E-mail sa zámerne neposiela,
+     * organizátori sa s kontaktnou osobou dohodnú sami.
+     */
+    public function demote($id)
+    {
+        $registration = Registration::with('guests')->findOrFail($id);
+
+        if ($registration->isWaitlisted()) {
+            return back()->with('error', "Rezervácia {$registration->reservation_number} už je medzi náhradníkmi.");
+        }
+
+        $active = $registration->guests->whereNull('cancelled_at');
+        $blocking = $active->filter(fn ($g) => $g->paid || $g->ticket_issued || $g->checked_in);
+
+        if ($blocking->isNotEmpty()) {
+            return back()->with('error', sprintf(
+                'Rezerváciu %s nemožno presunúť medzi náhradníkov – zaplatené, vydaný lístok alebo zapísaný pri vstupe: %s. Najprv zrušte označenie platby.',
+                $registration->reservation_number,
+                $blocking->pluck('name')->join(', '),
+            ));
+        }
+
+        DB::transaction(function () use ($registration, $active) {
+            $registration->update(['waitlisted_at' => now(), 'promoted_at' => null]);
+
+            // Termín platby a pripomienky platia len pre riadnych – po
+            // prípadnom ďalšom presune medzi riadne sa začne odznova.
+            $active->each->update([
+                'table_id' => null,
+                'seat_number' => null,
+                'payment_deadline_at' => null,
+                'reminder_sent_at' => null,
+                'final_notice_sent_at' => null,
+            ]);
+        });
+
+        ActivityLog::record(
+            'registration.demoted',
+            "Presunul rezerváciu {$registration->reservation_number} medzi náhradníkov",
+            $registration,
+        );
+
+        return back()->with('success', "Rezervácia {$registration->reservation_number} je medzi náhradníkmi. Kontaktnej osobe sa e-mail neposielal.");
     }
 }

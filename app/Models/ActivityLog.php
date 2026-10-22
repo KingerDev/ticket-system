@@ -41,6 +41,7 @@ class ActivityLog extends Model
         'seat.block_updated'    => 'Úprava rezervácie stoličky',
         'seat.unblocked'        => 'Zrušenie rezervácie stoličky',
         'registration.promoted' => 'Presun z náhradníkov',
+        'registration.demoted'  => 'Presun medzi náhradníkov',
         'user.created'          => 'Vytvorenie používateľa',
         'user.updated'          => 'Úprava používateľa',
         'user.deleted'          => 'Odstránenie používateľa',
