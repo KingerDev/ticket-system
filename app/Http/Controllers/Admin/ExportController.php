@@ -19,8 +19,11 @@ class ExportController extends Controller
 
     public function export(Request $request)
     {
+        // Admin bez usádzania nesmie zoznam ani zoradiť podľa stolov.
+        $showSeat = $request->user()->canSeeSeating();
+
         $request->validate([
-            'sort_by'           => 'required|in:name,table',
+            'sort_by'           => ['required', $showSeat ? 'in:name,table' : 'in:name'],
             'format'            => 'required|in:pdf,excel',
             'separate_teachers' => 'nullable|boolean',
             'include_allergens' => 'nullable|boolean',
@@ -47,7 +50,7 @@ class ExportController extends Controller
 
         $separateTeachers  = (bool) $request->separate_teachers;
         $includeAllergens  = (bool) $request->include_allergens;
-        $includeSeat       = (bool) $request->include_seat;
+        $includeSeat       = $showSeat && $request->boolean('include_seat');
         $includeTicket     = (bool) $request->include_ticket;
 
         $mainList    = $separateTeachers ? $guests->where('is_teacher', false)->values() : $guests;

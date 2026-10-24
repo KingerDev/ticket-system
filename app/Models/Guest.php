@@ -158,6 +158,17 @@ class Guest extends Model
         };
     }
 
+    /**
+     * Pre admina bez usádzania: namiesto stola a miesta len príznak, či hosť
+     * miesto má (bez neho sa nedá vydať lístok).
+     */
+    public function withoutSeat(): static
+    {
+        $this->setAttribute('has_seat', $this->table_id !== null && $this->seat_number !== null);
+
+        return $this->makeHidden(['table', 'table_id', 'seat_number']);
+    }
+
     /** Zoznam alergénov pre frontend: [{ id, name }, ...]. */
     public static function allergenOptions(): array
     {

@@ -98,11 +98,11 @@ onMounted(() => {
                                     <span v-if="page.props.flash.success_guest.is_teacher" class="px-2.5 py-0.5 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">Učiteľ</span>
                                 </div>
                                 <div class="space-y-3">
-                                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
+                                    <div v-if="page.props.flash.success_guest.table !== null" class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                                         <span class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase">Stôl</span>
                                         <span class="text-2xl font-black text-gray-900 dark:text-white">{{ page.props.flash.success_guest.table }}</span>
                                     </div>
-                                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
+                                    <div v-if="page.props.flash.success_guest.seat !== null" class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                                         <span class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase">Miesto</span>
                                         <span class="text-2xl font-black text-gray-900 dark:text-white">{{ page.props.flash.success_guest.seat }}</span>
                                     </div>
@@ -137,11 +137,11 @@ onMounted(() => {
                                     <span v-if="page.props.flash.already_checked_in_guest.is_teacher" class="px-2.5 py-0.5 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">Učiteľ</span>
                                 </div>
                                 <div class="space-y-3">
-                                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
+                                    <div v-if="page.props.flash.already_checked_in_guest.table !== null" class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                                         <span class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase">Stôl</span>
                                         <span class="text-2xl font-black text-gray-900 dark:text-white">{{ page.props.flash.already_checked_in_guest.table }}</span>
                                     </div>
-                                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
+                                    <div v-if="page.props.flash.already_checked_in_guest.seat !== null" class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                                         <span class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase">Miesto</span>
                                         <span class="text-2xl font-black text-gray-900 dark:text-white">{{ page.props.flash.already_checked_in_guest.seat }}</span>
                                     </div>

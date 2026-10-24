@@ -24,6 +24,7 @@ const createForm = useForm({
     password: '',
     password_confirmation: '',
     is_super_admin: false,
+    hide_seating: false,
 });
 
 const openCreate = () => {
@@ -49,6 +50,7 @@ const editForm = useForm({
     password: '',
     password_confirmation: '',
     is_super_admin: false,
+    hide_seating: false,
 });
 
 const openEdit = (user) => {
@@ -59,6 +61,7 @@ const openEdit = (user) => {
     editForm.password = '';
     editForm.password_confirmation = '';
     editForm.is_super_admin = !!user.is_super_admin;
+    editForm.hide_seating = !!user.hide_seating;
     showEditModal.value = true;
 };
 
@@ -105,7 +108,7 @@ const superAdminCount = computed(() => props.users.filter(u => u.is_super_admin)
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <p class="text-sm text-gray-600 dark:text-gray-400">
                         Účty s prístupom do administrácie. Super administrátor navyše spravuje používateľov
-                        a vidí záznam činnosti.
+                        a vidí záznam činnosti. Admin bez usádzania nevidí, kto kde sedí, a nikoho neusadí.
                     </p>
                     <PrimaryButton @click="openCreate">Pridať používateľa</PrimaryButton>
                 </div>
@@ -121,6 +124,12 @@ const superAdminCount = computed(() => props.users.filter(u => u.is_super_admin)
                                         class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
                                     >
                                         Super administrátor
+                                    </span>
+                                    <span
+                                        v-else-if="user.hide_seating"
+                                        class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                    >
+                                        Admin bez usádzania
                                     </span>
                                     <span
                                         v-else
@@ -188,6 +197,14 @@ const superAdminCount = computed(() => props.users.filter(u => u.is_super_admin)
                     </span>
                 </label>
 
+                <label v-if="!createForm.is_super_admin" class="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" v-model="createForm.hide_seating" class="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                        <span class="font-medium">Bez usádzania</span><br />
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Nevidí, kto kde sedí, a nikoho neusadí. Mená, registrácie a obsadenosť vidí. Svoju rolu nikde neuvidí.</span>
+                    </span>
+                </label>
+
                 <div class="flex justify-end space-x-3 pt-2">
                     <button type="button" @click="showCreateModal = false" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                         Zrušiť
@@ -232,6 +249,14 @@ const superAdminCount = computed(() => props.users.filter(u => u.is_super_admin)
                 <p v-if="editingUser.is_super_admin && superAdminCount <= 1" class="text-xs text-amber-700 dark:text-amber-400">
                     Toto je jediný super administrátor – rolu mu nie je možné odobrať.
                 </p>
+
+                <label v-if="!editForm.is_super_admin" class="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" v-model="editForm.hide_seating" class="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500 dark:bg-gray-900 dark:border-gray-700 w-4 h-4" />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                        <span class="font-medium">Bez usádzania</span><br />
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Nevidí, kto kde sedí, a nikoho neusadí. Mená, registrácie a obsadenosť vidí. Svoju rolu nikde neuvidí.</span>
+                    </span>
+                </label>
 
                 <div class="flex justify-end space-x-3 pt-2">
                     <button type="button" @click="showEditModal = false" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">

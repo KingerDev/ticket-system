@@ -38,16 +38,27 @@ class RegistrationAdminController extends Controller
         // Najnovšie rezervácie navrchu, hostia v rámci nej v poradí, v akom boli zapísaní.
         $guests = $query->orderByDesc('registration_id')->orderBy('id')->paginate(20)->withQueryString();
 
+        if (! $request->user()->canSeeSeating()) {
+            $guests->through(fn (Guest $guest) => $guest->withoutSeat());
+        }
+
         return Inertia::render('Admin/Registrations/Index', [
             'guests'  => $guests,
             'filters' => $request->only('search'),
         ]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $registration = Registration::with(['guests.table'])->findOrFail($id);
-        $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
+
+        // Admin bez usádzania nedostane ani mapu, ani stôl a miesto hostí.
+        if ($request->user()->canSeeSeating()) {
+            $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
+        } else {
+            $tables = [];
+            $registration->guests->each->withoutSeat();
+        }
 
         return Inertia::render('Admin/Registrations/Show', [
             'registration' => $registration,

@@ -65,7 +65,7 @@ const toggleTeacher = (guest) => {
                                 <tr>
                                     <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Meno hosťa</th>
                                     <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rezervácia</th>
-                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Miesto</th>
+                                    <th v-if="$page.props.auth.seating" class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Miesto</th>
                                     <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Platba</th>
                                     <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Lístok</th>
                                     <th class="px-3 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Akcia</th>
@@ -99,7 +99,7 @@ const toggleTeacher = (guest) => {
                                     </td>
 
                                     <!-- Miesto -->
-                                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                                    <td v-if="$page.props.auth.seating" class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                                         <span v-if="guest.table">{{ guest.table.name }} / {{ guest.seat_number }}</span>
                                         <span v-else class="text-gray-400">—</span>
                                     </td>
@@ -136,7 +136,7 @@ const toggleTeacher = (guest) => {
 
                                 </tr>
                                 <tr v-if="guests.data.length === 0">
-                                    <td colspan="6" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                    <td :colspan="$page.props.auth.seating ? 6 : 5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                         Neboli nájdené žiadne záznamy.
                                     </td>
                                 </tr>

@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+            'seating' => \App\Http\Middleware\EnsureCanSeeSeating::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

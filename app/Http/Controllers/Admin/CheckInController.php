@@ -22,6 +22,7 @@ class CheckInController extends Controller
         ]);
 
         $code = trim($request->ticket_code);
+        $showSeat = $request->user()->canSeeSeating();
 
         // Find guest by ticket code
         $guest = Guest::with(['registration', 'table'])->where('ticket_code', $code)->first();
@@ -45,8 +46,8 @@ class CheckInController extends Controller
                 ->with('error', "Hosť {$guest->name} bol už skontrolovaný o " . $guest->checked_in_at->format('H:i') . "!")
                 ->with('already_checked_in_guest', [
                     'name'          => $guest->name,
-                    'table'         => $guest->table->name ?? 'Neznámy',
-                    'seat'          => $guest->seat_number ?? 'Neznáme',
+                    'table'         => $showSeat ? ($guest->table->name ?? 'Neznámy') : null,
+                    'seat'          => $showSeat ? ($guest->seat_number ?? 'Neznáme') : null,
                     'allergens'     => $guest->allergens_display,
                     'is_teacher'    => $guest->is_teacher,
                     'note'          => $guest->note,
@@ -68,8 +69,8 @@ class CheckInController extends Controller
 
         return back()->with('success_guest', [
             'name'       => $guest->name,
-            'table'      => $guest->table->name ?? 'Neznámy',
-            'seat'       => $guest->seat_number ?? 'Neznáme',
+            'table'      => $showSeat ? ($guest->table->name ?? 'Neznámy') : null,
+            'seat'       => $showSeat ? ($guest->seat_number ?? 'Neznáme') : null,
             'allergens'  => $guest->allergens_display,
             'is_teacher' => $guest->is_teacher,
             'note'       => $guest->note,

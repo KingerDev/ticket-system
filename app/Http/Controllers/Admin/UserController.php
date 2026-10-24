@@ -17,8 +17,8 @@ class UserController extends Controller
     {
         return Inertia::render('Admin/Users/Index', [
             'users' => User::orderBy('name')->get([
-                'id', 'name', 'email', 'is_super_admin', 'created_at',
-            ]),
+                'id', 'name', 'email', 'is_super_admin', 'hide_seating', 'created_at',
+            ])->each->makeVisible('hide_seating'),
         ]);
     }
 
@@ -29,13 +29,18 @@ class UserController extends Controller
             'email'          => ['required', 'email', 'max:255', 'unique:users,email'],
             'password'       => ['required', 'confirmed', Password::min(8)],
             'is_super_admin' => ['boolean'],
+            'hide_seating'   => ['boolean'],
         ]);
+
+        $isSuperAdmin = $validated['is_super_admin'] ?? false;
 
         $user = User::create([
             'name'           => $validated['name'],
             'email'          => $validated['email'],
             'password'       => $validated['password'],
-            'is_super_admin' => $validated['is_super_admin'] ?? false,
+            'is_super_admin' => $isSuperAdmin,
+            // Super admin vidí usadenie vždy, obmedzenie by u neho nič neznamenalo.
+            'hide_seating'   => ! $isSuperAdmin && ($validated['hide_seating'] ?? false),
         ]);
 
         $user->forceFill(['email_verified_at' => now()])->save();
@@ -44,7 +49,7 @@ class UserController extends Controller
             'user.created',
             "Vytvoril používateľa {$user->name} ({$user->email})",
             $user,
-            ['super_admin' => $user->is_super_admin],
+            ['super_admin' => $user->is_super_admin, 'bez_usadzania' => $user->hide_seating],
         );
 
         return back()->with('success', "Používateľ {$user->name} bol vytvorený.");
@@ -57,6 +62,7 @@ class UserController extends Controller
             'email'          => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password'       => ['nullable', 'confirmed', Password::min(8)],
             'is_super_admin' => ['boolean'],
+            'hide_seating'   => ['boolean'],
         ]);
 
         $isSuperAdmin = $validated['is_super_admin'] ?? false;
@@ -66,12 +72,13 @@ class UserController extends Controller
             return back()->with('error', 'Nemôžete odobrať rolu poslednému super administrátorovi.');
         }
 
-        $before = $user->only(['name', 'email', 'is_super_admin']);
+        $before = $user->only(['name', 'email', 'is_super_admin', 'hide_seating']);
 
         $user->fill([
             'name'           => $validated['name'],
             'email'          => $validated['email'],
             'is_super_admin' => $isSuperAdmin,
+            'hide_seating'   => ! $isSuperAdmin && ($validated['hide_seating'] ?? false),
         ]);
 
         $passwordChanged = filled($validated['password'] ?? null);
@@ -82,7 +89,7 @@ class UserController extends Controller
 
         $user->save();
 
-        $changes = ActivityLog::diff($before, $user->only(['name', 'email', 'is_super_admin']));
+        $changes = ActivityLog::diff($before, $user->only(['name', 'email', 'is_super_admin', 'hide_seating']));
 
         if ($passwordChanged) {
             $changes['heslo'] = ['pred' => '—', 'po' => 'zmenené'];

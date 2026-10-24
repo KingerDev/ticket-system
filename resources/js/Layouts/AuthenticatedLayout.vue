@@ -40,6 +40,7 @@ const showingNavigationDropdown = ref(false);
                                     Prehľad
                                 </NavLink>
                                 <NavLink
+                                    v-if="$page.props.auth.seating"
                                     :href="route('admin.seating')"
                                     :active="route().current('admin.seating') || route().current('admin.seating.lookup')"
                                 >
@@ -185,6 +186,7 @@ const showingNavigationDropdown = ref(false);
                             Prehľad
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
+                            v-if="$page.props.auth.seating"
                             :href="route('admin.seating')"
                             :active="route().current('admin.seating') || route().current('admin.seating.lookup')"
                         >

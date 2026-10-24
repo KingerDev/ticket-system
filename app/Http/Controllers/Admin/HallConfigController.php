@@ -109,10 +109,20 @@ class HallConfigController extends Controller
         return redirect()->route('admin.hall.edit')->with('success', 'Konfigurácia sály bola úspešne uložená.');
     }
 
-    public function map()
+    public function map(Request $request)
     {
         $config = HallConfig::first();
         $tables = Table::with(['guests.registration', 'seatBlocks'])->get();
+
+        // Admin bez usádzania vidí len, ktoré stoličky sú obsadené a rezervované –
+        // ani mená hostí, ani popis rezervácie (býva v ňom meno učiteľa).
+        if (! $request->user()->canSeeSeating()) {
+            $tables = $tables->map(fn (Table $table) => [
+                ...$table->only(['id', 'name', 'row_label', 'position_in_row', 'capacity']),
+                'guests'      => $table->guests->map(fn ($g) => ['seat_number' => $g->seat_number])->values(),
+                'seat_blocks' => $table->seatBlocks->map(fn ($b) => ['seat_number' => $b->seat_number])->values(),
+            ]);
+        }
 
         return Inertia::render('Admin/TableMap', [
             'config'   => $config,

@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import InputError from '@/Components/InputError.vue';
@@ -31,6 +31,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['seat-selected']);
+
+// Admin bez usádzania dostane len čísla obsadených a rezervovaných stoličiek.
+const canSeat = computed(() => usePage().props.auth.seating);
 
 // DOM refs for fit-to-screen calculation
 const mapContainer = ref(null);
@@ -208,6 +211,7 @@ const removeBlock = () => {
 };
 
 const handleSeatClick = (table, seatNum, e) => {
+    if (!canSeat.value) return;
     const guest = getGuestForSeat(table, seatNum);
     const block = getBlockForSeat(table, seatNum);
     if (props.assignMode) {
@@ -279,6 +283,7 @@ const getBlockForSeat = (table, seatNum) => {
                     </p>
                 </div>
                 <button
+                    v-if="canSeat"
                     type="button"
                     @click="blockMode = !blockMode; blockNotice = ''; closePopover()"
                     class="px-4 py-2 rounded-md text-sm font-semibold border transition-colors"
@@ -291,9 +296,12 @@ const getBlockForSeat = (table, seatNum) => {
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-300 w-full">
                     <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-white border border-gray-300 mr-2 display-block"></span> Voľné</div>
                     <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-300 border border-dashed border-purple-600 mr-2 display-block"></span> Rezervované organizátormi</div>
-                    <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-400 border border-gray-500 mr-2 display-block"></span> Obsadené (bez lístka)</div>
-                    <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 mr-2 display-block"></span> Lístok vydaný (neprišiel)</div>
-                    <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 border border-green-600 mr-2 display-block"></span> Na mieste (Check-in)</div>
+                    <template v-if="canSeat">
+                        <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-400 border border-gray-500 mr-2 display-block"></span> Obsadené (bez lístka)</div>
+                        <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 mr-2 display-block"></span> Lístok vydaný (neprišiel)</div>
+                        <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 border border-green-600 mr-2 display-block"></span> Na mieste (Check-in)</div>
+                    </template>
+                    <div v-else class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-400 border border-gray-500 mr-2 display-block"></span> Obsadené</div>
                 </div>
             </div>
         </template>
@@ -355,8 +363,8 @@ const getBlockForSeat = (table, seatNum) => {
                                 <!-- Place seats radially around the table -->
                                 <button 
                                     @click.stop="handleSeatClick(table, s, $event)"
-                                    class="absolute w-10 h-10 -ml-5 -mt-5 rounded-full border-2 transition-transform hover:scale-125 hover:z-20 cursor-pointer shadow-sm flex items-center justify-center"
-                                    :class="getSeatColor(table, s)"
+                                    class="absolute w-10 h-10 -ml-5 -mt-5 rounded-full border-2 transition-transform shadow-sm flex items-center justify-center"
+                                    :class="[getSeatColor(table, s), canSeat ? 'hover:scale-125 hover:z-20 cursor-pointer' : 'cursor-default']"
                                     :style="{
                                         left: `calc(50% + ${Math.cos((s * (360 / table.capacity) - 90) * Math.PI / 180) * 95}px)`,
                                         top: `calc(50% + ${Math.sin((s * (360 / table.capacity) - 90) * Math.PI / 180) * 95}px)`

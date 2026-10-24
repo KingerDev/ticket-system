@@ -52,7 +52,7 @@ const submit = () => {
                                 <input type="radio" v-model="form.sort_by" value="name" class="text-blue-600 focus:ring-blue-500" />
                                 <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">Mena (A–Z)</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
+                            <label v-if="$page.props.auth.seating" class="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" v-model="form.sort_by" value="table" class="text-blue-600 focus:ring-blue-500" />
                                 <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">Stola a miesta</span>
                             </label>
@@ -75,7 +75,7 @@ const submit = () => {
                                 </div>
                             </label>
 
-                            <label class="flex items-center gap-3 cursor-pointer group">
+                            <label v-if="$page.props.auth.seating" class="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
                                     v-model="form.include_seat"

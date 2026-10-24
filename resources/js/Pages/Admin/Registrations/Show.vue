@@ -17,6 +17,10 @@ const props = defineProps({
     allergens: { type: Array, default: () => [] },
 });
 
+// Admin bez usádzania nedostane stôl ani miesto, len príznak has_seat.
+const canSeat = computed(() => usePage().props.auth.seating);
+const hasSeat = (guest) => guest.has_seat ?? !!guest.table_id;
+
 // Currently selected guest id for assignment
 const activeGuestId = ref(null);
 const activeGuest = ref(null);
@@ -363,7 +367,7 @@ const closeTicketModal = () => {
                                         <span v-if="guest.cancelled_at" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                                             Stornovaný
                                         </span>
-                                        <span v-else-if="guest.table_id" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                        <span v-else-if="hasSeat(guest)" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                                             Umiestnený
                                         </span>
                                         <span v-else class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
@@ -418,7 +422,7 @@ const closeTicketModal = () => {
                                     </button>
 
                                     <button
-                                        v-if="!guest.cancelled_at && !isWaitlisted"
+                                        v-if="canSeat && !guest.cancelled_at && !isWaitlisted"
                                         @click="selectGuestForAssignment(guest)"
                                         class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
                                         :class="{'ring-2 ring-blue-500': activeGuestId === guest.id}"
@@ -430,14 +434,14 @@ const closeTicketModal = () => {
                                         Učiteľ
                                     </span>
                                     <PrimaryButton
-                                        v-if="!isWaitlisted && !guest.cancelled_at && guest.table_id && !guest.ticket_issued && guest.paid"
+                                        v-if="!isWaitlisted && !guest.cancelled_at && hasSeat(guest) && !guest.ticket_issued && guest.paid"
                                         @click="openIssueModal(guest)"
                                         class="bg-blue-600 hover:bg-blue-700 text-white"
                                     >
                                         Vydať lístok
                                     </PrimaryButton>
                                     <span
-                                        v-else-if="!isWaitlisted && !guest.cancelled_at && guest.table_id && !guest.ticket_issued"
+                                        v-else-if="!isWaitlisted && !guest.cancelled_at && hasSeat(guest) && !guest.ticket_issued"
                                         class="self-center text-xs text-gray-500 dark:text-gray-400"
                                     >
                                         Lístok až po úhrade
@@ -449,7 +453,7 @@ const closeTicketModal = () => {
                 </div>
 
                 <!-- Embedded Interactive Table Map -->
-                <div id="map-section" class="bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-lg overflow-hidden relative">
+                <div v-if="canSeat" id="map-section" class="bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-lg overflow-hidden relative">
                     
                     <div v-if="activeGuestId" class="absolute top-0 left-0 w-full z-20 bg-blue-600 shadow-lg text-white px-6 py-4 flex justify-between items-center transition-all">
                         <div>
@@ -739,8 +743,9 @@ const closeTicketModal = () => {
 
                 <!-- Čo sa odstránením stratí – admin to musí vidieť pred kliknutím. -->
                 <ul class="mb-4 space-y-1.5 text-sm">
-                    <li v-if="deletingGuest.table_id" class="text-gray-600 dark:text-gray-400">
-                        Uvoľní sa miesto {{ deletingGuest.seat_number }} pri stole {{ deletingGuest.table?.name }}.
+                    <li v-if="hasSeat(deletingGuest)" class="text-gray-600 dark:text-gray-400">
+                        <template v-if="canSeat">Uvoľní sa miesto {{ deletingGuest.seat_number }} pri stole {{ deletingGuest.table?.name }}.</template>
+                        <template v-else>Uvoľní sa jeho miesto v sále.</template>
                     </li>
                     <li v-if="deletingGuest.paid" class="text-amber-700 dark:text-amber-400 font-medium">
                         Hosť má označenú uhradenú platbu.

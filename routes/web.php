@@ -24,7 +24,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::patch('/registrations/{id}/contact', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateContact'])->name('admin.registrations.update_contact');
     Route::patch('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateGuest'])->name('admin.guests.update');
     Route::delete('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'destroyGuest'])->name('admin.guests.destroy');
-    Route::post('/registrations/{id}/assign-seat', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'assignSeat'])->name('admin.registrations.assign');
     Route::post('/guests/{id}/toggle-teacher', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'toggleTeacher'])->name('admin.guests.toggle_teacher');
     Route::post('/guests/{id}/toggle-paid', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'togglePaid'])->name('admin.guests.toggle_paid');
     Route::post('/guests/{id}/issue-ticket', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'issueTicket'])->name('admin.guests.issue_ticket');
@@ -40,14 +39,20 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::get('/waitlist', [\App\Http\Controllers\Admin\WaitlistController::class, 'index'])->name('admin.waitlist.index');
     Route::post('/waitlist/{id}/promote', [\App\Http\Controllers\Admin\WaitlistController::class, 'promote'])->name('admin.waitlist.promote');
     Route::post('/waitlist/{id}/demote', [\App\Http\Controllers\Admin\WaitlistController::class, 'demote'])->name('admin.waitlist.demote');
-    Route::post('/seat-blocks', [\App\Http\Controllers\Admin\SeatBlockController::class, 'store'])->name('admin.seat_blocks.store');
-    Route::patch('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'update'])->name('admin.seat_blocks.update');
-    Route::delete('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'destroy'])->name('admin.seat_blocks.destroy');
 
-    // Seating guide
-    Route::get('/seating', [\App\Http\Controllers\Admin\SeatingController::class, 'index'])->name('admin.seating');
-    Route::get('/seating/lookup', [\App\Http\Controllers\Admin\SeatingController::class, 'lookup'])->name('admin.seating.lookup');
-    Route::post('/seating/check-in', [\App\Http\Controllers\Admin\SeatingController::class, 'checkIn'])->name('admin.seating.check_in');
+    // Kto kde sedí a usádzanie – admin bez usádzania sem nesmie.
+    Route::middleware('seating')->group(function () {
+        Route::post('/registrations/{id}/assign-seat', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'assignSeat'])->name('admin.registrations.assign');
+        Route::post('/seat-blocks', [\App\Http\Controllers\Admin\SeatBlockController::class, 'store'])->name('admin.seat_blocks.store');
+        Route::patch('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'update'])->name('admin.seat_blocks.update');
+        Route::delete('/seat-blocks/{seatBlock}', [\App\Http\Controllers\Admin\SeatBlockController::class, 'destroy'])->name('admin.seat_blocks.destroy');
+        Route::get('/seating', [\App\Http\Controllers\Admin\SeatingController::class, 'index'])->name('admin.seating');
+        Route::get('/seating/lookup', [\App\Http\Controllers\Admin\SeatingController::class, 'lookup'])->name('admin.seating.lookup');
+        Route::post('/seating/check-in', [\App\Http\Controllers\Admin\SeatingController::class, 'checkIn'])->name('admin.seating.check_in');
+    });
+
+    // Mapu vidia všetci; admin bez usádzania len obsadenosť, bez mien.
+    Route::get('/tables/map', [\App\Http\Controllers\Admin\HallConfigController::class, 'map'])->name('admin.tables.map');
 
     // Export
     Route::get('/export', [\App\Http\Controllers\Admin\ExportController::class, 'index'])->name('admin.export');
@@ -71,8 +76,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
         Route::post('/hall', [\App\Http\Controllers\Admin\HallConfigController::class, 'update'])->name('admin.hall.update');
     });
 
-    // Hall Config & Tables Map
-    Route::get('/tables/map', [\App\Http\Controllers\Admin\HallConfigController::class, 'map'])->name('admin.tables.map');
 });
 
 Route::middleware('auth')->group(function () {

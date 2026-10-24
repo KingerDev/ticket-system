@@ -33,6 +33,8 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
+                // Len či ukázať usádzanie, nie názov roly.
+                'seating' => (bool) $request->user()?->canSeeSeating(),
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

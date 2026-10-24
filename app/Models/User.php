@@ -22,12 +22,22 @@ class User extends Authenticatable
         'email',
         'password',
         'is_super_admin',
+        'hide_seating',
     ];
 
     /** Super administrátor smie spravovať používateľov a čítať auditný log. */
     public function isSuperAdmin(): bool
     {
         return (bool) $this->is_super_admin;
+    }
+
+    /**
+     * Či smie vidieť, kto kde sedí, a usádzať. Super admin vždy –
+     * inak by si mohol zamknúť konfiguráciu sály.
+     */
+    public function canSeeSeating(): bool
+    {
+        return $this->isSuperAdmin() || ! $this->hide_seating;
     }
 
     /**
@@ -38,6 +48,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        // Rola sa do prehliadača neposiela, používateľ ju nemá vidieť.
+        'hide_seating',
     ];
 
     /**
@@ -51,6 +63,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
+            'hide_seating' => 'boolean',
         ];
     }
 }
