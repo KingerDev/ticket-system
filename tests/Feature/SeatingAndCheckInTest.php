@@ -34,7 +34,7 @@ class SeatingAndCheckInTest extends TestCase
         );
 
         $this->assertSame('Jana Nováková', $host['name']);
-        $this->assertSame('A1', $host['table_name']);
+        $this->assertSame('4', $host['table_name']);
         $this->assertSame(4, $host['seat_number']);
     }
 
@@ -125,7 +125,7 @@ class SeatingAndCheckInTest extends TestCase
 
         $this->assertSame(['Druhý', 'Prvý'], array_column($prisli, 'name'));
         $this->assertSame('002', $prisli[0]['ticket_code']);
-        $this->assertSame('A1', $prisli[0]['table_name']);
+        $this->assertSame('4', $prisli[0]['table_name']);
         $this->assertSame(4, $prisli[0]['seat_number']);
     }
 

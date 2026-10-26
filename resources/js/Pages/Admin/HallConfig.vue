@@ -34,22 +34,22 @@ watch(() => form.num_rows, (newVal) => {
 
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-// Compute which table names the new config produces
-const newTableNames = computed(() => {
-    const names = new Set();
+// Stoly (rad + pozícia, napr. „A1“), ktoré nová konfigurácia vytvorí
+const newTableKeys = computed(() => {
+    const keys = new Set();
     const rows = parseInt(form.num_rows) || 0;
     for (let r = 0; r < rows; r++) {
         const count = parseInt(form.tables_per_row[r]) || 0;
         for (let t = 1; t <= count; t++) {
-            names.add(alphabet[r] + t);
+            keys.add(alphabet[r] + t);
         }
     }
-    return names;
+    return keys;
 });
 
 // Tables that exist now but won't exist after saving
 const tablesToRemove = computed(() =>
-    props.tables.filter(t => !newTableNames.value.has(t.name))
+    props.tables.filter(t => !newTableKeys.value.has(t.row_label + t.position_in_row))
 );
 
 // Subset of tablesToRemove that have at least one guest assigned

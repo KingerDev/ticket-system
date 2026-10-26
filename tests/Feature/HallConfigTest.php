@@ -29,9 +29,11 @@ class HallConfigTest extends TestCase
 
         $this->assertSame(1, HallConfig::count());
         $this->assertSame(5, Table::count());
+        // Hadík: rad A sprava doľava (A1 = 3), rad B zľava doprava (B1 = 4).
         $this->assertSame(
-            ['A1', 'A2', 'A3', 'B1', 'B2'],
-            Table::orderBy('name')->pluck('name')->all()
+            ['A1' => '3', 'A2' => '2', 'A3' => '1', 'B1' => '4', 'B2' => '5'],
+            Table::orderBy('row_label')->orderBy('position_in_row')->get()
+                ->mapWithKeys(fn ($t) => [$t->row_label . $t->position_in_row => $t->name])->all()
         );
         $this->assertSame([6], Table::distinct()->pluck('capacity')->all());
     }
@@ -39,7 +41,7 @@ class HallConfigTest extends TestCase
     public function test_pridanie_stolov_zachova_povodne(): void
     {
         $this->hall(2, 2, 8);
-        $povodneId = Table::where('name', 'A1')->value('id');
+        $povodneId = $this->table('A', 1)->id;
 
         $this->post(route('admin.hall.update'), [
             'num_rows'        => 2,
@@ -48,13 +50,14 @@ class HallConfigTest extends TestCase
         ]);
 
         $this->assertSame(6, Table::count());
-        $this->assertSame($povodneId, Table::where('name', 'A1')->value('id'), 'existujúci stôl sa nemá znovu vytvárať');
+        $this->assertSame($povodneId, $this->table('A', 1)->id, 'existujúci stôl sa nemá znovu vytvárať');
+        $this->assertSame(['4', '3', '2', '1', '5', '6'], Table::orderBy('row_label')->orderBy('position_in_row')->pluck('name')->all(), 'čísla sa majú prepočítať');
     }
 
     public function test_zrusenie_stola_uvolni_hostov(): void
     {
         $this->hall(2, 2, 8);
-        $stol = Table::where('name', 'B2')->first();
+        $stol = $this->table('B', 2);
         $guest = $this->reservation([[
             'name' => 'Jana Nováková', 'table_id' => $stol->id, 'seat_number' => 3,
         ]])->guests->first();
@@ -65,7 +68,7 @@ class HallConfigTest extends TestCase
             'seats_per_table' => 8,
         ]);
 
-        $this->assertNull(Table::where('name', 'B2')->first(), 'stôl sa mal zrušiť');
+        $this->assertNull(Table::find($stol->id), 'stôl sa mal zrušiť');
 
         $guest->refresh();
         $this->assertNull($guest->table_id, 'hosťovi sa má zrušiť väzba na stôl');
@@ -98,8 +101,23 @@ class HallConfigTest extends TestCase
 
         $log = \App\Models\ActivityLog::where('action', 'hall.updated')->first();
         $this->assertNotNull($log);
-        $this->assertSame(['A3'], $log->properties['pridané']);
+        $this->assertSame(['1'], $log->properties['pridané'], 'nový stôl A3 je pri hadíku stôl 1');
         $this->assertSame([], $log->properties['odobraté']);
+    }
+
+    public function test_existujuce_stoly_sa_precisluju_hadikom(): void
+    {
+        $this->hall(4, 5, 8);
+
+        $this->assertSame(
+            [5, 4, 3, 2, 1, 6, 7, 8, 9, 10, 15, 14, 13, 12, 11, 16, 17, 18, 19, 20],
+            Table::orderBy('row_label')->orderBy('position_in_row')->pluck('name')->map(fn ($n) => (int) $n)->all()
+        );
+    }
+
+    private function table(string $row, int $position): Table
+    {
+        return Table::where('row_label', $row)->where('position_in_row', $position)->firstOrFail();
     }
 
     public function test_neplatne_hodnoty_neprejdu(): void

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\HallConfig;
 use App\Models\Table;
+use App\Support\TableNumbering;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -128,6 +129,8 @@ class DatabaseSeeder extends Seeder
                 $table->wasRecentlyCreated ? $created++ : $skipped++;
             }
         }
+
+        TableNumbering::renumber();
 
         $this->good('konfigurácia', sprintf(
             'radov: %d · miest pri stole: %d',

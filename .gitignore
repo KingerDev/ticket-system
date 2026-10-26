@@ -24,3 +24,4 @@ Thumbs.db
 
 # Lokálne pokyny pre Claude Code
 /CLAUDE.md
+.env.demo

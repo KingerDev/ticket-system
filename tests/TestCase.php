@@ -6,6 +6,7 @@ use App\Models\Guest;
 use App\Models\HallConfig;
 use App\Models\Registration;
 use App\Models\Table;
+use App\Support\TableNumbering;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -60,6 +61,8 @@ abstract class TestCase extends BaseTestCase
                 ]);
             }
         }
+
+        TableNumbering::renumber();
 
         return $config;
     }

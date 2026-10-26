@@ -9,6 +9,7 @@ use App\Models\HallConfig;
 use App\Models\SeatBlock;
 use App\Models\Table;
 use App\Support\Capacity;
+use App\Support\TableNumbering;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -35,24 +36,26 @@ class HallConfigController extends Controller
             'seats_per_table'   => 'required|integer|min:1',
         ]);
 
-        // Build the set of table names the new config produces
+        // Stôl je určený radom a pozíciou (napr. „A1“), name je len prepočítané číslo stola.
         $alphabet = range('A', 'Z');
-        $newTableNames = [];
+        $newKeys = [];
         for ($r = 0; $r < $validated['num_rows']; $r++) {
             $label = $alphabet[$r];
             $count = $validated['tables_per_row'][$r] ?? 0;
             for ($t = 1; $t <= $count; $t++) {
-                $newTableNames[] = $label . $t;
+                $newKeys[] = $label . $t;
             }
         }
 
-        $currentTables = Table::withCount('guests')->get()->keyBy('name');
-        $currentNames  = $currentTables->keys()->toArray();
+        $currentTables = Table::withCount('guests')->get()
+            ->keyBy(fn (Table $table) => $table->row_label . $table->position_in_row);
+        $currentKeys = $currentTables->keys()->toArray();
 
-        $namesToRemove = array_values(array_diff($currentNames, $newTableNames));
-        $namesToAdd    = array_values(array_diff($newTableNames, $currentNames));
+        $keysToRemove = array_values(array_diff($currentKeys, $newKeys));
+        $keysToAdd    = array_values(array_diff($newKeys, $currentKeys));
+        $removedNames = array_values($currentTables->only($keysToRemove)->pluck('name')->all());
 
-        DB::transaction(function () use ($validated, $currentTables, $namesToRemove, $namesToAdd, $alphabet) {
+        $addedNames = DB::transaction(function () use ($validated, $currentTables, $keysToRemove, $keysToAdd) {
             // Save config
             $config = HallConfig::first();
             if (!$config) {
@@ -62,15 +65,15 @@ class HallConfigController extends Controller
             }
 
             // Remove tables that are no longer in config
-            foreach ($namesToRemove as $name) {
-                $table = $currentTables[$name];
+            foreach ($keysToRemove as $key) {
+                $table = $currentTables[$key];
                 // Clear seat_number; table_id is nulled automatically by DB (nullOnDelete)
                 Guest::where('table_id', $table->id)->update(['seat_number' => null]);
                 $table->delete();
             }
 
             // Update capacity on tables that remain
-            $remainingIds = $currentTables->except($namesToRemove)->pluck('id');
+            $remainingIds = $currentTables->except($keysToRemove)->pluck('id');
             if ($remainingIds->isNotEmpty()) {
                 Table::whereIn('id', $remainingIds)->update(['capacity' => $validated['seats_per_table']]);
 
@@ -81,16 +84,19 @@ class HallConfigController extends Controller
             }
 
             // Add new tables
-            foreach ($namesToAdd as $name) {
-                $label = substr($name, 0, 1);
-                $pos   = (int) substr($name, 1);
-                Table::create([
-                    'name'           => $name,
-                    'row_label'      => $label,
-                    'position_in_row'=> $pos,
+            $addedIds = [];
+            foreach ($keysToAdd as $key) {
+                $addedIds[] = Table::create([
+                    'name'           => $key,
+                    'row_label'      => substr($key, 0, 1),
+                    'position_in_row'=> (int) substr($key, 1),
                     'capacity'       => $validated['seats_per_table'],
-                ]);
+                ])->id;
             }
+
+            TableNumbering::renumber();
+
+            return Table::whereIn('id', $addedIds)->pluck('name')->sort(SORT_NUMERIC)->values()->all();
         });
 
         ActivityLog::record(
@@ -99,11 +105,11 @@ class HallConfigController extends Controller
                 'Zmenil rozloženie sály: %d radov, %d miest pri stole (pribudlo %d, ubudlo %d stolov)',
                 $validated['num_rows'],
                 $validated['seats_per_table'],
-                count($namesToAdd),
-                count($namesToRemove),
+                count($addedNames),
+                count($removedNames),
             ),
             null,
-            ['pridané' => $namesToAdd, 'odobraté' => $namesToRemove],
+            ['pridané' => $addedNames, 'odobraté' => $removedNames],
         );
 
         return redirect()->route('admin.hall.edit')->with('success', 'Konfigurácia sály bola úspešne uložená.');
