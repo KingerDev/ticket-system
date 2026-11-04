@@ -33,13 +33,13 @@ class GuestAdministrationTest extends TestCase
         ]])->guests->first();
 
         $this->patch(route('admin.guests.update', $guest), [
-            'name'           => 'Jana Kováčová',
-            'email'          => 'nova@email.sk',
-            'allergen_ids'   => [3],
-            'is_vegetarian'  => true,
-            'is_teacher'     => true,
-            'allergen_note'  => 'celiakia',
-            'note'           => 'bezbariérový prístup',
+            'name' => 'Jana Kováčová',
+            'email' => 'nova@email.sk',
+            'allergen_ids' => [3],
+            'is_vegetarian' => true,
+            'is_teacher' => true,
+            'allergen_note' => 'celiakia',
+            'note' => 'bezbariérový prístup',
         ])->assertSessionHasNoErrors();
 
         $guest->refresh();
@@ -97,7 +97,7 @@ class GuestAdministrationTest extends TestCase
         $registration = $this->reservation();
 
         $this->patch(route('admin.registrations.update_contact', $registration->id), [
-            'registrant_name'  => 'Peter Malý',
+            'registrant_name' => 'Peter Malý',
             'registrant_email' => 'peter@email.sk',
         ])->assertSessionHasNoErrors();
 
@@ -115,8 +115,8 @@ class GuestAdministrationTest extends TestCase
         $table = Table::first();
 
         $this->post(route('admin.registrations.assign', $registration->id), [
-            'guest_id'    => $guest->id,
-            'table_id'    => $table->id,
+            'guest_id' => $guest->id,
+            'table_id' => $table->id,
             'seat_number' => 5,
         ])->assertSessionHas('success');
 
@@ -133,8 +133,8 @@ class GuestAdministrationTest extends TestCase
         $guest = $druhy->guests->first();
 
         $this->post(route('admin.registrations.assign', $druhy->id), [
-            'guest_id'    => $guest->id,
-            'table_id'    => $table->id,
+            'guest_id' => $guest->id,
+            'table_id' => $table->id,
             'seat_number' => 5,
         ])->assertSessionHas('error');
 
@@ -256,6 +256,56 @@ class GuestAdministrationTest extends TestCase
         $this->get(route('admin.registrations.index', ['search' => 'Peter']))
             ->assertOk()
             ->assertSee('Peter');
+    }
+
+    /** Mená hostí, ktorých zoznam vráti pre dané filtre. */
+    private function filteredNames(array $filters): array
+    {
+        $guests = $this->get(route('admin.registrations.index', $filters))
+            ->assertOk()
+            ->viewData('page')['props']['guests']['data'];
+
+        $names = array_column($guests, 'name');
+        sort($names);
+
+        return $names;
+    }
+
+    public function test_filtre_v_zozname(): void
+    {
+        $stol = Table::first();
+        $this->reservation([
+            ['name' => 'Učiteľ Prišiel', 'is_teacher' => true, 'paid' => true, 'ticket_issued' => true, 'ticket_code' => '101',
+                'checked_in' => true, 'table_id' => $stol->id, 'seat_number' => 1],
+            ['name' => 'Učiteľ Nezaplatil', 'is_teacher' => true],
+        ]);
+        $this->reservation([['name' => 'Verejný Zaplatil', 'paid' => true]]);
+        $this->reservation([['name' => 'Náhradník Čaká']], ['waitlisted_at' => now()]);
+        $this->reservation([['name' => 'Storno Hosť', 'cancelled_at' => now()]]);
+
+        $this->assertSame(['Učiteľ Nezaplatil', 'Učiteľ Prišiel'], $this->filteredNames(['type' => 'teacher']));
+        $this->assertSame(['Učiteľ Nezaplatil'], $this->filteredNames(['type' => 'teacher', 'paid' => 'no']));
+        $this->assertSame(['Učiteľ Prišiel', 'Verejný Zaplatil'], $this->filteredNames(['paid' => 'yes']));
+        $this->assertSame(['Učiteľ Prišiel'], $this->filteredNames(['arrived' => 'yes']));
+        $this->assertSame(['Učiteľ Prišiel'], $this->filteredNames(['ticket' => 'yes']));
+        $this->assertSame(['Učiteľ Prišiel'], $this->filteredNames(['seat' => 'yes']));
+        $this->assertSame(['Náhradník Čaká'], $this->filteredNames(['status' => 'waitlist']));
+        $this->assertSame(['Storno Hosť'], $this->filteredNames(['status' => 'cancelled']));
+        $this->assertSame(
+            ['Učiteľ Nezaplatil', 'Učiteľ Prišiel', 'Verejný Zaplatil'],
+            $this->filteredNames(['status' => 'confirmed'])
+        );
+        $this->assertCount(5, $this->filteredNames(['paid' => 'nezmysel']), 'neznáma hodnota filter vypne');
+    }
+
+    public function test_admin_bez_usadzania_nefiltruje_podla_miesta(): void
+    {
+        $this->reservation([['name' => 'Usadený Hosť', 'table_id' => Table::first()->id, 'seat_number' => 1]]);
+        $this->reservation([['name' => 'Hosť Bez Miesta']]);
+
+        $this->actingAs($this->admin(['hide_seating' => true]));
+
+        $this->assertCount(2, $this->filteredNames(['seat' => 'yes']), 'filter podľa miesta by prezradil, kto sedí');
     }
 
     public function test_zmazanie_celej_rezervacie(): void

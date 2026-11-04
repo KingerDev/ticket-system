@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ref, reactive, computed, watch } from 'vue';
 import TextInput from '@/Components/TextInput.vue';
 import PaidToggleModal from '@/Components/PaidToggleModal.vue';
 
@@ -10,19 +10,46 @@ const props = defineProps({
     filters: Object,
 });
 
+const page = usePage();
+
 const search = ref(props.filters.search || '');
 
+// Výberové filtre; prázdna hodnota = filter vypnutý.
+const filterKeys = ['type', 'paid', 'ticket', 'arrived', 'status', 'seat'];
+const filters = reactive(Object.fromEntries(filterKeys.map(k => [k, props.filters[k] || ''])));
+
+const filterOptions = computed(() => [
+    { key: 'type', label: 'Typ', options: [['teacher', 'Učitelia'], ['public', 'Verejnosť']] },
+    { key: 'paid', label: 'Platba', options: [['yes', 'Zaplatené'], ['no', 'Nezaplatené']] },
+    { key: 'ticket', label: 'Lístok', options: [['yes', 'Vydaný'], ['no', 'Čaká']] },
+    { key: 'arrived', label: 'Príchod', options: [['yes', 'Prišli'], ['no', 'Neprišli']] },
+    { key: 'status', label: 'Stav', options: [['confirmed', 'Riadni'], ['waitlist', 'Náhradníci'], ['cancelled', 'Stornovaní']] },
+    // Admin bez usádzania nevidí, kto sedí – ani cez filter.
+    ...(page.props.auth.seating
+        ? [{ key: 'seat', label: 'Miesto', options: [['yes', 'Usadení'], ['no', 'Bez miesta']] }]
+        : []),
+]);
+
+const hasActiveFilters = computed(() => search.value !== '' || filterKeys.some(k => filters[k] !== ''));
+
+const reload = () => {
+    const params = { search: search.value, ...filters };
+    Object.keys(params).forEach(k => { if (params[k] === '') delete params[k]; });
+    router.get(route('admin.registrations.index'), params, { preserveState: true, replace: true });
+};
+
 let searchTimeout;
-watch(search, (value) => {
+watch(search, () => {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        router.get(
-            route('admin.registrations.index'),
-            { search: value },
-            { preserveState: true, replace: true }
-        );
-    }, 300);
+    searchTimeout = setTimeout(reload, 300);
 });
+
+watch(filters, reload);
+
+const resetFilters = () => {
+    filterKeys.forEach(k => { filters[k] = ''; });
+    search.value = '';
+};
 
 const paidGuest = ref(null);
 
@@ -56,6 +83,21 @@ const toggleTeacher = (guest) => {
                         </div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">
                             Celkom: {{ guests.total }} hostí
+                        </div>
+                        <div class="w-full flex flex-wrap items-end gap-3">
+                            <label v-for="f in filterOptions" :key="f.key" class="flex flex-col text-xs font-medium text-gray-500 dark:text-gray-400">
+                                {{ f.label }}
+                                <select v-model="filters[f.key]"
+                                    class="mt-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm py-1.5 pl-2 pr-8 focus:border-indigo-500 focus:ring-indigo-500"
+                                    :class="filters[f.key] ? 'border-indigo-400 dark:border-indigo-500' : ''">
+                                    <option value="">Všetci</option>
+                                    <option v-for="[value, text] in f.options" :key="value" :value="value">{{ text }}</option>
+                                </select>
+                            </label>
+                            <button v-if="hasActiveFilters" type="button" @click="resetFilters"
+                                class="text-sm text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 pb-2">
+                                Zrušiť filtre
+                            </button>
                         </div>
                     </div>
 

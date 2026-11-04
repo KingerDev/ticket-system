@@ -35,6 +35,42 @@ class RegistrationAdminController extends Controller
             });
         }
 
+        // Filtre – neznáma hodnota sa ignoruje, akoby filter nebol zadaný.
+        match ($request->input('type')) {
+            'teacher' => $query->where('is_teacher', true),
+            'public'  => $query->where('is_teacher', false),
+            default   => null,
+        };
+        match ($request->input('paid')) {
+            'yes'   => $query->where('paid', true),
+            'no'    => $query->where('paid', false),
+            default => null,
+        };
+        match ($request->input('ticket')) {
+            'yes'   => $query->where('ticket_issued', true),
+            'no'    => $query->where('ticket_issued', false),
+            default => null,
+        };
+        match ($request->input('arrived')) {
+            'yes'   => $query->where('checked_in', true),
+            'no'    => $query->where('checked_in', false),
+            default => null,
+        };
+        match ($request->input('status')) {
+            'confirmed' => $query->confirmed(),
+            'waitlist'  => $query->active()->whereHas('registration', fn ($q) => $q->waitlisted()),
+            'cancelled' => $query->cancelled(),
+            default     => null,
+        };
+        // Admin bez usádzania nesmie podľa miesta filtrovať – prezradilo by to, kto sedí.
+        if ($request->user()->canSeeSeating()) {
+            match ($request->input('seat')) {
+                'yes'   => $query->whereNotNull('table_id')->whereNotNull('seat_number'),
+                'no'    => $query->where(fn ($q) => $q->whereNull('table_id')->orWhereNull('seat_number')),
+                default => null,
+            };
+        }
+
         // Najnovšie rezervácie navrchu, hostia v rámci nej v poradí, v akom boli zapísaní.
         $guests = $query->orderByDesc('registration_id')->orderBy('id')->paginate(20)->withQueryString();
 
@@ -44,7 +80,7 @@ class RegistrationAdminController extends Controller
 
         return Inertia::render('Admin/Registrations/Index', [
             'guests'  => $guests,
-            'filters' => $request->only('search'),
+            'filters' => $request->only('search', 'type', 'paid', 'ticket', 'arrived', 'status', 'seat'),
         ]);
     }
 
