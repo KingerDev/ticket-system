@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\RegistrationConfirmation;
 use App\Models\ActivityLog;
 use App\Models\Guest;
 use App\Models\Registration;
@@ -12,6 +13,8 @@ use App\Rules\DeliverableEmail;
 use App\Support\Capacity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
 
@@ -81,6 +84,7 @@ class RegistrationAdminController extends Controller
         return Inertia::render('Admin/Registrations/Index', [
             'guests'  => $guests,
             'filters' => $request->only('search', 'type', 'paid', 'ticket', 'arrived', 'status', 'seat'),
+            'allergens' => Guest::allergenOptions(),
         ]);
     }
 
@@ -101,6 +105,126 @@ class RegistrationAdminController extends Controller
             'tables' => $tables,
             'allergens' => Guest::allergenOptions(),
         ]);
+    }
+
+    /**
+     * Administrátor založí novú rezerváciu s jedným hosťom. Ďalších pridá
+     * v jej detaile. Nikdy nejde medzi náhradníkov – keď nie je miesto, odmietne sa.
+     */
+    public function store(Request $request)
+    {
+        $validated = $this->validateNewGuest($request);
+
+        [$registration, $guest] = DB::transaction(function () use ($validated) {
+            Capacity::lock();
+            $this->ensureGuestFits($validated);
+
+            $registration = Registration::createNumbered([
+                'registrant_name'  => $validated['name'],
+                // Stĺpec je povinný; prázdnu adresu pripomienky hlásia ako neplatnú.
+                'registrant_email' => trim($validated['email'] ?? ''),
+            ]);
+
+            return [$registration, $registration->guests()->create($this->guestAttributes($validated))];
+        });
+
+        if ($validated['send_confirmation'] ?? false) {
+            Mail::to($guest->email)->queue(new RegistrationConfirmation($registration));
+        }
+
+        ActivityLog::record(
+            'registration.created_by_admin',
+            "Pridal hosťa {$guest->name} v novej rezervácii {$registration->reservation_number}",
+            $guest,
+        );
+
+        return redirect()
+            ->route('admin.registrations.show', $registration->id)
+            ->with('success', "Hosť {$guest->name} bol pridaný do novej rezervácie {$registration->reservation_number}.");
+    }
+
+    /** Ďalší hosť do existujúcej rezervácie; v náhradníckej zostáva náhradníkom. */
+    public function addGuest(Request $request, $id)
+    {
+        $registration = Registration::findOrFail($id);
+        $validated = $this->validateNewGuest($request);
+
+        $guest = DB::transaction(function () use ($registration, $validated) {
+            Capacity::lock();
+
+            // Náhradník miesto nezaberá, kapacita sa stráži až pri presune.
+            if (! $registration->isWaitlisted()) {
+                $this->ensureGuestFits($validated);
+            }
+
+            return $registration->guests()->create($this->guestAttributes($validated));
+        });
+
+        if ($validated['send_confirmation'] ?? false) {
+            Mail::to($guest->email)->queue(new RegistrationConfirmation($registration, $guest));
+        }
+
+        ActivityLog::record(
+            'guest.added',
+            "Pridal hosťa {$guest->name} do rezervácie {$registration->reservation_number}",
+            $guest,
+        );
+
+        return back()->with('success', "Hosť {$guest->name} bol pridaný do rezervácie {$registration->reservation_number}.");
+    }
+
+    private function validateNewGuest(Request $request): array
+    {
+        $validated = $request->validate([
+            'name'              => ['required', 'string', 'max:255', Guest::FULL_NAME_REGEX],
+            'email'             => ['nullable', 'required_if_accepted:send_confirmation', 'string', 'max:255', new DeliverableEmail],
+            'allergen_ids'      => 'nullable|array',
+            'allergen_ids.*'    => 'integer|between:1,14',
+            'is_vegan'          => 'boolean',
+            'is_vegetarian'     => 'boolean',
+            'is_teacher'        => 'boolean',
+            'allergen_note'     => 'nullable|string|max:' . Guest::NOTE_MAX_LENGTH,
+            'note'              => 'nullable|string|max:' . Guest::NOTE_MAX_LENGTH,
+            'send_confirmation' => 'boolean',
+        ], [
+            'name.required'              => 'Zadajte meno a priezvisko hosťa.',
+            'name.regex'                 => 'Zadajte meno aj priezvisko (napr. Jana Nováková).',
+            'email.required_if_accepted' => 'Na odoslanie potvrdenia zadajte e-mail.',
+        ]);
+
+        if (! empty($validated['is_vegan']) && ! empty($validated['is_vegetarian'])) {
+            throw ValidationException::withMessages(['is_vegan' => 'Vyberte buď vegán, alebo vegetarián.']);
+        }
+
+        return $validated;
+    }
+
+    /** Volať pod zámkom Capacity::lock(). */
+    private function ensureGuestFits(array $validated): void
+    {
+        $isTeacher = $validated['is_teacher'] ?? false;
+
+        if ($isTeacher ? Capacity::teachersFit(1) : Capacity::fits(1)) {
+            return;
+        }
+
+        throw ValidationException::withMessages(['capacity' => $isTeacher
+            ? 'Rezervované miesta pre učiteľov sú obsadené. Najprv rezervujte ďalšiu stoličku na mape.'
+            : 'V sále už nie je voľné miesto. Najprv nejaké uvoľnite, napríklad stornom.']);
+    }
+
+    private function guestAttributes(array $validated): array
+    {
+        return [
+            'name'          => $validated['name'],
+            'email'         => filled($validated['email'] ?? null) ? trim($validated['email']) : null,
+            'allergen_ids'  => Guest::normalizeAllergenIds($validated['allergen_ids'] ?? []),
+            'is_vegan'      => $validated['is_vegan'] ?? false,
+            'is_vegetarian' => $validated['is_vegetarian'] ?? false,
+            'is_teacher'    => $validated['is_teacher'] ?? false,
+            'allergen_note' => $validated['allergen_note'] ?? null,
+            'note'          => $validated['note'] ?? null,
+        ];
     }
 
     /**

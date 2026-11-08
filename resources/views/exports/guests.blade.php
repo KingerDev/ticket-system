@@ -18,13 +18,13 @@
     .teacher-th { background: #7c3aed; }
     td { padding: 4px 7px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
     tr:nth-child(even) td { background: #f9fafb; }
+    tr.table-gap td { background: #fff; border-bottom: none; padding: 5px 0; }
     .allergens { color: #dc2626; font-style: italic; }
-    .no-data { text-align: center; color: #9ca3af; padding: 12px; font-style: italic; }
-
-    .footer { margin-top: 20px; text-align: right; font-size: 8px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 6px; }
 </style>
 </head>
 <body>
+
+@php($columns = 3 + ($includeSeat ? 2 : 0) + ($includeAllergens ? 1 : 0) + ($includeTicket ? 1 : 0))
 
 <div class="header">
     <h1>Zoznam hostí</h1>
@@ -57,6 +57,9 @@
     </thead>
     <tbody>
         @foreach($mainList as $i => $guest)
+            @if($separateTables && $i > 0 && $mainList[$i - 1]->table_id !== $guest->table_id)
+                <tr class="table-gap"><td colspan="{{ $columns }}">&nbsp;</td></tr>
+            @endif
         <tr>
             <td>{{ $i + 1 }}</td>
             <td>{{ $guest->name }}</td>
@@ -102,6 +105,9 @@
         </thead>
         <tbody>
             @foreach($teacherList as $i => $guest)
+                @if($separateTables && $i > 0 && $teacherList[$i - 1]->table_id !== $guest->table_id)
+                    <tr class="table-gap"><td colspan="{{ $columns }}">&nbsp;</td></tr>
+                @endif
             <tr>
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $guest->name }}</td>

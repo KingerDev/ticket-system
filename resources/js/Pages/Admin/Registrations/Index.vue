@@ -4,11 +4,15 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, reactive, computed, watch } from 'vue';
 import TextInput from '@/Components/TextInput.vue';
 import PaidToggleModal from '@/Components/PaidToggleModal.vue';
+import AddGuestModal from '@/Components/AddGuestModal.vue';
 
 const props = defineProps({
     guests: Object,
     filters: Object,
+    allergens: { type: Array, default: () => [] },
 });
+
+const showAddGuest = ref(false);
 
 const page = usePage();
 
@@ -81,8 +85,12 @@ const toggleTeacher = (guest) => {
                                 placeholder="Hľadať podľa mena, e-mailu, rezervácie, lístka…"
                             />
                         </div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            Celkom: {{ guests.total }} hostí
+                        <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                            <span>Celkom: {{ guests.total }} hostí</span>
+                            <button type="button" @click="showAddGuest = true"
+                                class="px-3 py-1.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                Pridať hosťa
+                            </button>
                         </div>
                         <div class="w-full flex flex-wrap items-end gap-3">
                             <label v-for="f in filterOptions" :key="f.key" class="flex flex-col text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -205,5 +213,13 @@ const toggleTeacher = (guest) => {
             </div>
         </div>
         <PaidToggleModal :guest="paidGuest" @close="paidGuest = null" />
+        <AddGuestModal
+            :show="showAddGuest"
+            :action="route('admin.registrations.store')"
+            title="Pridať hosťa"
+            subtitle="Založí sa nová rezervácia, ďalších hostí pridáte v jej detaile."
+            :allergens="allergens"
+            @close="showAddGuest = false"
+        />
     </AuthenticatedLayout>
 </template>

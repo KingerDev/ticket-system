@@ -29,4 +29,17 @@ return [
 
     'contact_email' => env('PLES_CONTACT_EMAIL'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Uzavretie rezervácií
+    |--------------------------------------------------------------------------
+    |
+    | Kým je zapnuté, verejný aj učiteľský formulár ukazujú len oznam a server
+    | nové rezervácie neprijíma. Hostí môže ďalej pridávať administrátor.
+    | Znova otvoriť: PLES_REGISTRATION_CLOSED=false.
+    |
+    */
+
+    'registration_closed' => env('PLES_REGISTRATION_CLOSED', true),
+
 ];

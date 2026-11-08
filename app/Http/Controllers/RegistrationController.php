@@ -10,7 +10,6 @@ use App\Support\Capacity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -32,6 +31,12 @@ class RegistrationController extends Controller
 
     private function form(bool $forTeachers)
     {
+        if (config('ples.registration_closed')) {
+            return Inertia::render('Registration/Closed', [
+                'contactEmail' => Capacity::contactEmail(),
+            ]);
+        }
+
         $capacity = Capacity::summary();
 
         return Inertia::render('Registration/Create', [
@@ -60,6 +65,11 @@ class RegistrationController extends Controller
 
     private function register(Request $request, bool $forTeachers)
     {
+        // Otvorený starý formulár alebo priamy POST nesmie rezerváciu založiť.
+        if (config('ples.registration_closed')) {
+            return redirect()->route('register');
+        }
+
         $validated = $request->validate([
             'guests'                        => 'required|array|min:1',
             // Meno aj priezvisko je povinné pre každého hosťa (aspoň dve slová).
@@ -111,18 +121,10 @@ class RegistrationController extends Controller
 
             $waitlisted = ! Capacity::fits($count - $teachers, $teachers);
 
-            // Číslo sa odvádza od ID, nie od počtu záznamov. Pri počte by po
-            // zmazaní rezervácie dostal ďalší hosť už obsadené číslo a unikátny
-            // index by registráciu odmietol chybou 500.
-            $registration = Registration::create([
-                'reservation_number' => 'DOCASNE-' . Str::uuid(),
+            $registration = Registration::createNumbered([
                 'registrant_name'    => $firstGuest['name'],
                 'registrant_email'   => trim($firstGuest['email']),
                 'waitlisted_at'      => $waitlisted ? now() : null,
-            ]);
-
-            $registration->update([
-                'reservation_number' => 'PLES-' . str_pad((string) $registration->id, 4, '0', STR_PAD_LEFT),
             ]);
 
             foreach ($validated['guests'] as $guestData) {

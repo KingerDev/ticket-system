@@ -9,6 +9,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import PaidToggleModal from '@/Components/PaidToggleModal.vue';
+import AddGuestModal from '@/Components/AddGuestModal.vue';
 
 const props = defineProps({
     registration: Object,
@@ -198,6 +199,7 @@ const confirmIssueTicket = () => {
 };
 
 const paidGuest = ref(null);
+const showAddGuest = ref(false);
 
 // --- Zmazanie celej rezervácie ---------------------------------------------
 const showDeleteRegistrationModal = ref(false);
@@ -312,7 +314,7 @@ const closeTicketModal = () => {
                     <span class="text-gray-400">·</span>
                     <span>{{ guestCountLabel }}</span>
                     <span class="text-gray-400">·</span>
-                    <span>Kontakt: {{ registration.registrant_name }} &lt;{{ registration.registrant_email }}&gt;</span>
+                    <span>Kontakt: {{ registration.registrant_name }} <template v-if="registration.registrant_email">&lt;{{ registration.registrant_email }}&gt;</template><template v-else>(bez e-mailu)</template></span>
                     <button
                         @click="openContactModal"
                         class="ml-auto px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
@@ -354,8 +356,12 @@ const closeTicketModal = () => {
 
                 <!-- Guests List -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-lg overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 flex items-center justify-between gap-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Hostia a Lístky</h3>
+                        <button type="button" @click="showAddGuest = true"
+                            class="px-3 py-1.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                            Pridať hosťa
+                        </button>
                     </div>
                     
                     <ul class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -493,6 +499,15 @@ const closeTicketModal = () => {
 
             </div>
         </div>
+
+        <AddGuestModal
+            :show="showAddGuest"
+            :action="route('admin.registrations.add_guest', registration.id)"
+            title="Pridať hosťa do rezervácie"
+            :subtitle="`Rezervácia ${registration.reservation_number}`"
+            :allergens="allergens"
+            @close="showAddGuest = false"
+        />
 
         <!-- Úprava údajov hosťa -->
         <Modal :show="showEditModal" @close="showEditModal = false" maxWidth="2xl">

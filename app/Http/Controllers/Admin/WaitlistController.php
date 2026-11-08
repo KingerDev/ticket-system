@@ -84,6 +84,17 @@ class WaitlistController extends Controller
 
         $registration = $result[1];
 
+        // Rezervácia založená administrátorom nemusí mať kontaktný e-mail.
+        if ($registration->registrant_email === '') {
+            ActivityLog::record(
+                'registration.promoted',
+                "Presunul rezerváciu {$registration->reservation_number} z náhradníkov medzi riadne",
+                $registration,
+            );
+
+            return back()->with('success', "Rezervácia {$registration->reservation_number} je riadna. Nemá kontaktný e-mail, kontaktujte ju, prosím, sami.");
+        }
+
         Mail::to($registration->registrant_email)->queue(new WaitlistPromoted($registration));
 
         ActivityLog::record(

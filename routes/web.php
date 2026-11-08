@@ -19,7 +19,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
 
     // Registrations
     Route::get('/registrations', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'index'])->name('admin.registrations.index');
+    Route::post('/registrations', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'store'])->name('admin.registrations.store');
     Route::get('/registrations/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'show'])->name('admin.registrations.show');
+    Route::post('/registrations/{id}/guests', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'addGuest'])->name('admin.registrations.add_guest');
     Route::delete('/registrations/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'destroy'])->name('admin.registrations.destroy');
     Route::patch('/registrations/{id}/contact', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateContact'])->name('admin.registrations.update_contact');
     Route::patch('/guests/{id}', [\App\Http\Controllers\Admin\RegistrationAdminController::class, 'updateGuest'])->name('admin.guests.update');

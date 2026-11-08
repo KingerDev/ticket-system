@@ -52,6 +52,10 @@ const submit = () => {
                                 <input type="radio" v-model="form.sort_by" value="name" class="text-blue-600 focus:ring-blue-500" />
                                 <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">Mena (A–Z)</span>
                             </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" v-model="form.sort_by" value="ticket" class="text-blue-600 focus:ring-blue-500" />
+                                <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">Čísla lístka</span>
+                            </label>
                             <label v-if="$page.props.auth.seating" class="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" v-model="form.sort_by" value="table" class="text-blue-600 focus:ring-blue-500" />
                                 <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">Stola a miesta</span>
@@ -78,7 +82,9 @@ const submit = () => {
                             <label v-if="$page.props.auth.seating" class="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
-                                    v-model="form.include_seat"
+                                    :checked="form.include_seat || form.sort_by === 'table'"
+                                    :disabled="form.sort_by === 'table'"
+                                    @change="form.include_seat = $event.target.checked"
                                     class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                                 <div>
@@ -102,7 +108,9 @@ const submit = () => {
                             <label class="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
-                                    v-model="form.include_ticket"
+                                    :checked="form.include_ticket || form.sort_by === 'ticket'"
+                                    :disabled="form.sort_by === 'ticket'"
+                                    @change="form.include_ticket = $event.target.checked"
                                     class="w-4 h-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-400"
                                 />
                                 <div>
@@ -116,7 +124,7 @@ const submit = () => {
                     <!-- Formát -->
                     <div>
                         <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Formát exportu</h3>
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <label
                                 class="flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors"
                                 :class="form.format === 'pdf'
@@ -148,6 +156,22 @@ const submit = () => {
                                     <div class="text-xs text-gray-400">.xlsx, editovateľný</div>
                                 </div>
                             </label>
+
+                            <label
+                                class="flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors"
+                                :class="form.format === 'word'
+                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'"
+                            >
+                                <input type="radio" v-model="form.format" value="word" class="sr-only" />
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM7.5 12h1.7l.9 4.2 1-4.2h1.8l1 4.2.9-4.2h1.7l-1.8 7h-1.7l-1-4-1 4H9.3l-1.8-7z"/>
+                                </svg>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-white text-sm">Word</div>
+                                    <div class="text-xs text-gray-400">.docx, editovateľný</div>
+                                </div>
+                            </label>
                         </div>
                     </div>
 
@@ -157,10 +181,10 @@ const submit = () => {
                             @click="submit"
                             :disabled="loading"
                             class="w-full py-3 px-6 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            :class="form.format === 'excel' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'"
+                            :class="form.format === 'excel' ? 'bg-green-600 hover:bg-green-700' : form.format === 'word' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'"
                         >
                             <span v-if="loading">Generujem...</span>
-                            <span v-else>Stiahnuť {{ form.format === 'excel' ? 'Excel' : 'PDF' }}</span>
+                            <span v-else>Stiahnuť {{ { pdf: 'PDF', excel: 'Excel', word: 'Word' }[form.format] }}</span>
                         </button>
                     </div>
 
