@@ -100,7 +100,9 @@ const lookup = () => {
                                     : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300',
                             ]"
                         >
-                            <div class="font-semibold leading-tight">{{ arrival.name }}</div>
+                            <div class="font-semibold leading-tight">
+                                <span v-if="arrival.ticket_code" :class="['font-mono mr-1', guest?.id === arrival.id ? 'text-blue-100' : 'text-blue-600 dark:text-blue-400']">{{ arrival.ticket_code }}</span>{{ arrival.name }}
+                            </div>
                             <div :class="['text-xs mt-0.5', guest?.id === arrival.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400']">
                                 <template v-if="arrival.table_name">Stôl {{ arrival.table_name }}, miesto {{ arrival.seat_number }}</template>
                                 <template v-else>Bez miesta</template>
